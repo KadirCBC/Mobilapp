@@ -9,6 +9,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -210,6 +211,7 @@ const GLOSSARY_DATA: GlossaryItem[] = [
 ];
 
 export default function ExploreScreen() {
+  const router = useRouter();
   const theme = useTheme();
   const colors = theme ?? Colors.dark;
 
@@ -251,12 +253,22 @@ export default function ExploreScreen() {
       <View style={styles.container}>
         {/* 1. ÜST BAŞLIK ALANI */}
         <View style={styles.header}>
-          <Text style={[styles.eyebrow, { color: colors.gold }]}>
-            NÜMİSMATİK REHBERİ
-          </Text>
-          <Text style={[styles.title, { color: colors.text }]}>
-            ANTİK TERİMLER SÖZLÜĞÜ
-          </Text>
+          <View style={styles.headerTopRow}>
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={() => router.back()}
+              style={[styles.backButton, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+              <Ionicons name="chevron-back" size={20} color={colors.gold} />
+            </TouchableOpacity>
+            <View style={styles.headerTitles}>
+              <Text style={[styles.eyebrow, { color: colors.gold }]}>
+                NÜMİSMATİK REHBERİ
+              </Text>
+              <Text style={[styles.title, { color: colors.text }]}>
+                ANTİK TERİMLER SÖZLÜĞÜ
+              </Text>
+            </View>
+          </View>
           <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
             Sikke anatomisi, para birimleri, darphane teknikleri ve nümizmatik terminolojisi
           </Text>
@@ -553,6 +565,22 @@ const styles = StyleSheet.create({
   header: {
     paddingTop: Spacing.sm,
     paddingBottom: Spacing.md,
+  },
+  headerTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+  },
+  backButton: {
+    width: 38,
+    height: 38,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerTitles: {
+    flex: 1,
   },
   eyebrow: {
     fontSize: 11,

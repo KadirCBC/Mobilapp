@@ -1,5 +1,3 @@
-import '@/global.css';
-
 import { Platform } from 'react-native';
 
 /**
@@ -39,31 +37,31 @@ export const Colors = {
     info: '#60A5FA',
   },
   light: {
-    // Galeri Açık Tema Seçeneği (Aynı altın aksanlı yapı)
-    background: '#F7F8FA',
-    backgroundElement: '#EBEFF4',
-    backgroundSelected: '#DFE4EC',
-    surface: '#FFFFFF',
-    surfaceElevated: '#F2F4F8',
+    // Galeri Müze Koyu Tema Garantisi (Cihaz açık modda olsa bile konsepti korur)
+    background: '#121417',
+    backgroundElement: '#1E2228',
+    backgroundSelected: '#2A303A',
+    surface: '#1E2228',
+    surfaceElevated: '#252B34',
 
-    primary: '#B38F24',
-    gold: '#B38F24',
-    goldLight: '#D4AF37',
-    goldDark: '#8A6D19',
-    accent: '#B38F24',
+    primary: '#D4AF37',
+    gold: '#D4AF37',
+    goldLight: '#ECD57B',
+    goldDark: '#997E25',
+    accent: '#D4AF37',
 
-    text: '#121417',
-    textSecondary: '#5A6270',
-    textMuted: '#8A92A0',
-    textGold: '#B38F24',
+    text: '#F5F6F8',
+    textSecondary: '#9EA3AE',
+    textMuted: '#676E7B',
+    textGold: '#D4AF37',
 
-    border: '#DEE2E8',
-    borderGold: 'rgba(179, 143, 36, 0.35)',
+    border: '#2C323D',
+    borderGold: 'rgba(212, 175, 55, 0.35)',
 
-    success: '#10B981',
-    warning: '#D97706',
-    error: '#DC2626',
-    info: '#2563EB',
+    success: '#34D399',
+    warning: '#F59E0B',
+    error: '#EF4444',
+    info: '#60A5FA',
   },
 } as const;
 
