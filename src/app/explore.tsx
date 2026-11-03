@@ -15,181 +15,197 @@ import { Ionicons } from '@expo/vector-icons';
 import { BorderRadius, BottomTabInset, Colors, MaxContentWidth, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
-// Nümismatik Terimleri Verisi
-interface GlossaryTerm {
+export interface GlossaryItem {
   id: string;
   term: string;
-  category: 'Anatomi' | 'Birim' | 'Maden' | 'Sanat';
-  description: string;
-  example?: string;
+  category: 'Anatomi' | 'Birim' | 'Maden' | 'Üretim' | 'Sanat';
+  icon: keyof typeof Ionicons.glyphMap;
+  shortDesc: string;
+  fullDesc: string;
+  historicalSignificance: string;
+  example: string;
 }
 
-const GLOSSARY_TERMS: GlossaryTerm[] = [
+const GLOSSARY_DATA: GlossaryItem[] = [
   {
     id: 'avers',
     term: 'Avers (Ön Yüz)',
     category: 'Anatomi',
-    description:
-      'Sikkenin genellikle hükümdar büstü, tanrı/tanrıça figürü veya devleti temsil eden ana hanedan armasını taşıyan ön yüzüdür.',
-    example: 'Örn: Atina Tetradrahmisi üzerindeki Miğferli Athena büstü.',
+    icon: 'disc',
+    shortDesc: 'Sikkenin hükümdar portresi veya ana sembolü taşıyan ön yüzü.',
+    fullDesc:
+      'Nümizmatikte sikkenin birincil veya ön yüzünü ifade eder. Genellikle basımı yaptıran imparator, kral veya tiranın büstünü, şehir devletinin koruyucu tanrısını (Athena, Zeus, Apollon) veya devlet armasını barındırır. Antik darp tekniğinde alt kalıba (örs kalıbına) yerleştirildiği için genellikle daha yüksek rölyefli ve dayanıklıdır.',
+    historicalSignificance:
+      'Hükümdarın meşruiyetini, egemenliğini ve siyasi propagandasını halka ve lejyonlara ulaştıran en etkili antik kitle iletişim aracıdır.',
+    example: 'Örn: Atina Tetradrahmisi üzerindeki miğferli Tanrıça Athena profili.',
   },
   {
     id: 'revers',
     term: 'Revers (Arka Yüz)',
     category: 'Anatomi',
-    description:
-      'Sikkenin arka yüzüdür. Genellikle darphane sembolleri, kutsal hayvanlar, zafer sahneleri, basım yılı veya dini motifleri barındırır.',
-    example: 'Örn: Athena sikkesinin arkasındaki kutsal baykuş ve zeytin dalı.',
+    icon: 'disc-outline',
+    shortDesc: 'Sikkenin ikincil detayları ve darphane mühürlerini içeren arka yüzü.',
+    fullDesc:
+      'Sikkenin arka yüzüdür. Antik çağda hareketli üst kalıp (çekiç kalıbı) ile darp edilirdi. Bu yüzde genellikle koruyucu kutsal hayvanlar (baykuş, kartal, aslan), zafer tanrıçası Nike, mitolojik sahneler, darp yılı, darphane monogramları ve memur adları yer alır.',
+    historicalSignificance:
+      'Sikkenin nerede, ne zaman ve hangi otorite denetiminde basıldığını kanıtlayan tarihi ve coğrafi belgedir.',
+    example: 'Örn: Atina sikkesinin arka yüzündeki kutsal baykuş (glaux) ve zeytin dalı.',
   },
   {
     id: 'lejant',
-    term: 'Lejant (Legend)',
+    term: 'Lejant (Legend / Kitabe)',
     category: 'Sanat',
-    description:
-      'Sikke yüzeyine darp edilmiş tüm yazılar, hükümdarın adı, unvanları, dini dualar veya darp yeri ibareleridir.',
-    example: 'Örn: "ΑΘΕ" (Atinalıların), "CAESAR AVGVSTVS".',
+    icon: 'text-outline',
+    shortDesc: 'Sikke üzerindeki harf, unvan, darp yeri ve kitabe yazıları.',
+    fullDesc:
+      'Sikke yüzeyine darp edilmiş tüm alfabetik veya epigrafik yazılardır. Hükümdarın tam unvanlarını ("Pater Patriae", "Basileus", "Sultanü’l-Berreyn"), sikkeyi basan topluluğun adını ("ΑΘΕ - Atinalıların") veya darp yeri ile basım tarihini belirtir.',
+    historicalSignificance:
+      'Antik dillerin, unvan hiyerarşisinin ve kronolojinin çözümlenmesinde arkeologlar ve tarihçiler için en kesin yazılı kanıttır.',
+    example: 'Örn: Augustus denariusu üzerindeki "CAESAR AVGVSTVS DIVI F" yazıtı.',
+  },
+  {
+    id: 'darphane',
+    term: 'Darphane (Mint / Darp Yeri)',
+    category: 'Üretim',
+    icon: 'business-outline',
+    shortDesc: 'Devlet denetiminde resmi madeni para basılan tarihi atölye.',
+    fullDesc:
+      'Madeni paraların eritme, pul (flan) hazırlama, ağırlık tartımı ve çekiçle darp edilme süreçlerinin yürütüldüğü resmi devlet kurumudur. Antik dünyada Sardes, Atina, Roma, Konstantinopolis ve İskenderiye; Osmanlı döneminde ise Bursa, Edirne ve Kostantiniyye gibi merkezler dünyanın en büyük darphaneleriydi.',
+    historicalSignificance:
+      'Darphaneler, sikkenin gramaj ve ayar güvencesini sağlayan imparatorluk hazinesinin kalbi konumundaydı.',
+    example: 'Örn: Bizans sikkelerindeki "CONOB" (Konstantinopolis darphanesi saf altın garantisi).',
   },
   {
     id: 'stater',
     term: 'Stater',
     category: 'Birim',
-    description:
-      'Antik Anadolu (Lidya) ve Antik Yunan dünyasının temel ağırlık ve yüksek değerli sikke standardıdır. Çoğunlukla altın ve elektrumdan basılmıştır.',
-    example: 'Örn: Kroisos Altın Stateri (10.7 g).',
+    icon: 'shield-outline',
+    shortDesc: 'Antik Anadolu ve Yunan dünyasının temel yüksek değerli sikke birimi.',
+    fullDesc:
+      'Grekçe "tartı / denge" anlamına gelen "histemi" kökünden türemiştir. Lidya Krallığı ve Antik Yunan dünyasında altın ve elektrum sikkeler için kullanılan temel ağırlık ve para standardıdır. Genellikle 8.4 ile 14 gram arasında değişen yüksek alım gücüne sahip prestij paralarıdır.',
+    historicalSignificance:
+      'Kroisos ve Büyük İskender’in ordularını finanse ettiği ve Akdeniz ticaretini yönlendirdiği altın para standardıdır.',
+    example: 'Örn: Lidya Kralı Kroisos’un 10.76 gramlık ağır altın stateri.',
   },
   {
     id: 'drahmi',
     term: 'Drahmi (Drachma)',
     category: 'Birim',
-    description:
-      'Antik Yunan dünyasının en yaygın gümüş sikkesidir. 1 drahmi yaklaşık 4.3 gram saf gümüştür; 4 katına "Tetradrahmi" denir.',
-    example: 'Örn: Büyük İskender ve Atina tetradrahmileri.',
-  },
-  {
-    id: 'solidus',
-    term: 'Solidus (Nomisma)',
-    category: 'Birim',
-    description:
-      'İmparator I. Constantinus tarafından tedavüle sokulan ve Bizans İmparatorluğu boyunca 700 yılı aşkın süre saflığını koruyan altın rezerv para birimidir.',
-    example: 'Örn: I. Justinianus ve Herakleios altın solidusları.',
+    icon: 'cash-outline',
+    shortDesc: 'Antik Yunan dünyasının günlük ve ticari temel gümüş para birimi.',
+    fullDesc:
+      'Kelime anlamı "bir avuç dolusu" (drapsein) demektir. Antik Yunanistan’da bir askerin veya ustanın yaklaşık günlük yevmiyesine denk gelen yaklaşık 4.3 gramlık gümüş para birimidir. 4 katı ağırlığındaki 17.2 gramlık "Tetradrahmi" ise uluslararası ticaretin ana aracıydı.',
+    historicalSignificance:
+      'Yunan şehir devletleri arasındaki ticari entegrasyonu sağlamış, Helenistik çağ boyunca Yakın Doğu’da geçerliliğini korumuştur.',
+    example: 'Örn: Klasik Dönem Atina ve Korint gümüş drahmi serileri.',
   },
   {
     id: 'denarius',
     term: 'Denarius',
     category: 'Birim',
-    description:
-      'Roma Cumhuriyeti ve Erken İmparatorluk döneminin standart gümüş parasıdır. Roma ordusunun ve Akdeniz günlük ticaretinin bel kemiğidir.',
-    example: 'Örn: Julius Caesar ve Augustus zafer denariusları.',
+    icon: 'wallet-outline',
+    shortDesc: 'Roma Cumhuriyeti ve İmparatorluğu’nun efsanevi standart gümüş parası.',
+    fullDesc:
+      'M.Ö. 211 yılında İkinci Pön Savaşı sırasında Roma’da tedavüle çıkarılmıştır. Adı Latince "onluk" (deni) anlamına gelir çünkü başlangıçta 10 bronz as değerindeydi. Yaklaşık 3.9 gram saf gümüşten basılan denarius, Roma lejyonerlerinin standart maaş birimiydi.',
+    historicalSignificance:
+      'Britanya’dan Fırat kıyılarına kadar tüm Roma İmparatorluğu’nda kullanılan, tarihin en uzun ömürlü gümüş para sistemidir.',
+    example: 'Örn: Julius Caesar’ın fil tasvirli askeri karargah denariusu.',
+  },
+  {
+    id: 'solidus',
+    term: 'Solidus (Nomisma)',
+    category: 'Birim',
+    icon: 'diamond-outline',
+    shortDesc: 'Bizans İmparatorluğu’nun 700 yıl değerini koruyan saf altın parası.',
+    fullDesc:
+      'İmparator I. Constantinus tarafından M.S. 312 civarında darp edilmeye başlanmıştır. 1/72 Roma libresi (yaklaşık 4.48-4.50 gram) saf altından üretilirdi. Bizans İmparatorluğu boyunca ayarı bozulmadan 11. yüzyıla kadar korunmuş ve "Orta Çağ’ın Doları" olarak anılmıştır.',
+    historicalSignificance:
+      'Konstantinopolis’in ticari üstünlüğünü ve İpek Yolu üzerindeki Doğu-Batı ticaretinin istikrarını yüzyıllarca tek başına sırtlamıştır.',
+    example: 'Örn: İmparator I. Justinianus ve Herakleios altın solidusları.',
   },
   {
     id: 'akce',
     term: 'Akçe',
     category: 'Birim',
-    description:
-      'Osmanlı Devleti’nin temel gümüş sikkesidir. İlk kez 1326 yılında Orhan Gazi adına Bursa darphanesinde basılmıştır.',
-    example: 'Örn: Orhan Gazi, I. Murad ve Fatih gümüş akçeleri.',
+    icon: 'layers-outline',
+    shortDesc: 'Osmanlı Devleti’nin ilk ve temel gümüş sikkesi.',
+    fullDesc:
+      'Kelime anlamı "akça / beyaz para" olan gümüş sikkedir. İlk kez 1326 yılında Orhan Gazi adına Bursa’da darp edilmiştir. Başlangıçta 1.15 gram saf gümüş olan akçe, devletin vergi toplama, asker maaşı ödeme ve çarşı pazar alışverişlerindeki ana para birimiydi.',
+    historicalSignificance:
+      'Osmanlı iktisat tarihinin kuruluş ve yükseliş dönemlerindeki ekonomik büyümesinin ve fiyat hareketlerinin temel göstergesidir.',
+    example: 'Örn: Fatih Sultan Mehmed’in Edirne ve İstanbul darplı akçeleri.',
   },
   {
     id: 'sultani',
     term: 'Sultani (Hasene / Şerifi)',
     category: 'Birim',
-    description:
-      'Fatih Sultan Mehmed tarafından 1477’de Kostantiniyye’de darp ettirilen ilk Osmanlı yerli altın sikkesidir. Venedik dukasına eşdeğer saflıktadır.',
-    example: 'Örn: Fatih Sultan Mehmed Altın Sultanisi (3.52 g).',
+    icon: 'ribbon-outline',
+    shortDesc: 'Fatih Sultan Mehmed döneminde basılan ilk Osmanlı yerli altın sikkesi.',
+    fullDesc:
+      'İstanbul’un fethinden sonra 1477 (Hicri 882) yılında Kostantiniyye darphanesinde basılan ilk yerli Osmanlı altın parasıdır. 3.52 gram ağırlığında ve 24 ayara yakın saflıktadır. Venedik dukasıyla rekabet edebilecek kalitede darp edilmiştir.',
+    historicalSignificance:
+      'Osmanlı İmparatorluğu’nun Akdeniz deniz ticaretinde Batı Avrupa altın paralarına olan bağımlılığını sona erdirmiştir.',
+    example: 'Örn: Fatih Sultan Mehmed Han’ın "İki karanın ve iki denizin sultanı" unvanlı altın sultanisi.',
   },
   {
     id: 'elektrum',
     term: 'Elektrum (Electrum)',
     category: 'Maden',
-    description:
-      'Doğal altın ve gümüş alaşımıdır. İnsanlık tarihindeki en eski Lidya sikkeleri Paktolos (Sart) Çayı yatağından toplanan bu madenden darp edilmiştir.',
-    example: 'Örn: Kral Alyattes dönemi aslan başlı ilk elektrum sikkeler.',
+    icon: 'sparkles-outline',
+    shortDesc: 'Doğal altın ve gümüş alaşımı; tarihin ilk sikkelerinin hammaddesi.',
+    fullDesc:
+      'Doğada altın ve gümüşün kendiliğinden birleşmesiyle oluşan açık sarı renkli kıymetli metal alaşımıdır. İnsanlık tarihindeki en eski madeni paralar M.Ö. 7. yüzyılda Lidya’da, Sart (Paktolos) Çayı yatağından çıkarılan elektrum tanecikleriyle üretilmiştir.',
+    historicalSignificance:
+      'Doğal madenin standart ağırlıkta pullara dökülüp devlet garantili damga vurulmasıyla "para" kavramı doğmuştur.',
+    example: 'Örn: Lidya Kralı Alyattes’in kükreyen aslan başlı ilk elektrum staterleri.',
   },
   {
     id: 'protom',
     term: 'Protom',
     category: 'Sanat',
-    description:
-      'Bir hayvanın, insanın veya mitolojik yaratığın yalnızca baş ve ön gövde kısmının işlendiği kabartma sanatsal tasvirdir.',
-    example: 'Örn: Lidya staterlerindeki karşı karşıya aslan ve boğa protomları.',
+    icon: 'color-palette-outline',
+    shortDesc: 'Bir hayvan veya mitolojik yaratığın yalnızca ön gövdesinin kabartma tasviri.',
+    fullDesc:
+      'Heykeltıraşlık ve nümizmatikte bir hayvanın (aslan, boğa, at, koç, grifon) baş, boyun ve ön bacaklarını içeren yarım gövde kabartmasına verilen addır. Karşı karşıya duran aslan ve boğa protomları Lidya kraliyet kudretinin en bilinen simgesidir.',
+    historicalSignificance:
+      'Antik sikkelerdeki protomlar, şehirlerin koruyucu totem hayvanlarını ve hükümdarlık armalarını sembolize eder.',
+    example: 'Örn: Kroisos sikkelerindeki karşı karşıya duran aslan ve boğa protomu.',
   },
   {
     id: 'monogram',
     term: 'Monogram',
     category: 'Sanat',
-    description:
-      'Darphane şehrini, sorumlu para memurunu veya basım dönemini belirtmek için harflerin tek bir geometrik sembolde birleştirilmesidir.',
-    example: 'Örn: Helenistik ve Roma sikkelerindeki darphane şifreleri.',
-  },
-];
-
-// Medeniyet Zaman Çizelgesi Verisi
-interface TimelineEvent {
-  id: string;
-  civilization: string;
-  era: string;
-  color: string;
-  keyCoin: string;
-  mint: string;
-  summary: string;
-  impact: string;
-}
-
-const TIMELINE_EVENTS: TimelineEvent[] = [
-  {
-    id: 'lydia',
-    civilization: 'Lidya Krallığı',
-    era: 'M.Ö. 7. – 6. Yüzyıl',
-    color: '#D4AF37',
-    keyCoin: 'Kroisos Altın Stateri (Karun)',
-    mint: 'Sardes (Manisa)',
-    summary:
-      'Madeni parayı insanlık tarihine kazandıran ilk medeniyettir. Doğal elektrum sikkelerle başlayıp Kral Kroisos döneminde saf altın ve saf gümüşten oluşan ilk bimetalik para sistemi geliştirilmiştir.',
-    impact: 'Takas ekonomisini sonlandırıp küresel ticaret devrimini başlattı.',
+    icon: 'git-merge-outline',
+    shortDesc: 'Harflerin birleştirilmesiyle oluşturulan darphane veya para memuru şifresi.',
+    fullDesc:
+      'İki veya daha fazla harfin tek bir görsel figür veya sembol oluşturacak biçimde sanatsal olarak kaynaştırılmasıdır. Helenistik ve Roma dönemi sikkelerinde basımdan sorumlu magistratın (para memurunun) adını veya darphaneyi kısaltmak için kullanılırdı.',
+    historicalSignificance:
+      'Bir sikkenin basıldığı yılı ve sorumlu memuru belirleyerek darphane içi sahtecilik ve gramaj hilelerini engellemeye yaramıştır.',
+    example: 'Örn: Büyük İskender sikkelerinin reversinde yer alan iç içe geçmiş şehir monogramları.',
   },
   {
-    id: 'greece',
-    civilization: 'Klasik & Helenistik Yunan',
-    era: 'M.Ö. 5. – 2. Yüzyıl',
-    color: '#60A5FA',
-    keyCoin: 'Atina Tetradrahmisi & İskender Stateri',
-    mint: 'Atina, Amfipolis, Babil',
-    summary:
-      'Atina’nın "Baykuşlu" gümüş tetradrahmisi Akdeniz havzasının ilk uluslararası rezerv parası oldu. Büyük İskender’in Asya seferi ile Yunan sikke standardı Hindistan sınırlarına kadar yayıldı.',
-    impact: 'Ortak para birimi ve nümizmatikte yüksek heykeltıraşlık estetiği kurdu.',
+    id: 'incuse',
+    term: 'İncuse (Darp Çukuru)',
+    category: 'Üretim',
+    icon: 'grid-outline',
+    shortDesc: 'Çekiç darbesinin oluşturduğu çukur veya negatif iz (Erken Dönem).',
+    fullDesc:
+      'En erken arkaik sikkelerin arka yüzünde kabartma bir desen yerine, çekiç zımbasının (punch) oluşturduğu bir veya iki adet derin kare ya da dikdörtgen çukura "incuse square" denir. Metal pulun darp sırasında kaymasını engellemek için tasarlanmıştır.',
+    historicalSignificance:
+      'Sikke darp teknolojisinin ilk gelişim evresini ve metal şekillendirme ustalığının başlangıcını simgeler.',
+    example: 'Örn: Lidya Kroiseios staterlerinin arkasındaki ikili darp çukurları.',
   },
   {
-    id: 'rome',
-    civilization: 'Roma İmparatorluğu',
-    era: 'M.Ö. 27 – M.S. 476',
-    color: '#F87171',
-    keyCoin: 'Gümüş Denarius & Altın Aureus',
-    mint: 'Roma, Lugdunum (Lyon), Antakya',
-    summary:
-      'İmparator Augustus’un getirdiği parasal reformla altın, gümüş ve bronz hiyerarşisi oluşturuldu. Sikkeler, imparatorların askeri zaferlerini ve ilahi gücünü duyuran antik çağın en etkili kitle iletişim aracıydı.',
-    impact: 'Pax Romana boyunca tüm Akdeniz ve Avrupa’da tek para dolaşımı sağlandı.',
-  },
-  {
-    id: 'byzantine',
-    civilization: 'Bizans İmparatorluğu',
-    era: 'M.S. 330 – 1453',
-    color: '#FBBF24',
-    keyCoin: 'Altın Solidus (Nomisma)',
-    mint: 'Konstantinopolis, Ravenna, Selanik',
-    summary:
-      'Konstantinopolis darphanesinde basılan Solidus, yaklaşık sekiz asır boyunca ayarını koruyarak "Orta Çağ’ın Doları" olarak kabul edildi. Sikkelerde Hristiyan ikonografisi ve cepheden imparator portreleri hakim oldu.',
-    impact: 'Doğu ile Batı arasındaki İpek Yolu ticaretinin güvenli dayanağı oldu.',
-  },
-  {
-    id: 'ottoman',
-    civilization: 'Osmanlı İmparatorluğu',
-    era: '1299 – 1922',
-    color: '#34D399',
-    keyCoin: 'Gümüş Akçe & Altın Sultani',
-    mint: 'Bursa, Edirne, Kostantiniyye, Kahire',
-    summary:
-      'Orhan Gazi’nin gümüş akçesiyle başlayan Osmanlı para geleneği, Fatih’in 1477’de bastırdığı Altın Sultani ile zirveye ulaştı. İslam hat sanatı ve hükümdar tuğraları sikke estetiğinin en görkemli örneklerini oluşturdu.',
-    impact: 'Üç kıtada 600 yılı aşkın süre çok darphaneli parasal istikrar sürdürdü.',
+    id: 'patina',
+    term: 'Patina (Asil Oksitlenme)',
+    category: 'Maden',
+    icon: 'leaf-outline',
+    shortDesc: 'Sikkenin toprak altında yüzyıllar boyunca kazandığı doğal koruyucu tabaka.',
+    fullDesc:
+      'Özellikle bronz, bakır ve gümüş sikkelerin toprak altındaki mineraller ve nem ile kimyasal tepkimeye girmesiyle yüzeyinde oluşan koruyucu mineral tabakasıdır. Yeşil (malakit), koyu kahverengi, mavi (azurit) tonlarında oluşur ve sikkenin orijinal olduğunu belgeler.',
+    historicalSignificance:
+      'Nümizmatikte asil patina bir sikkenin orijinalliğini, yaşını ve koleksiyon değerini katlayan en önemli görsel unsurdur.',
+    example: 'Örn: Roma İmparatorluk sestertiuslarının zümrüt yeşili pürüzsüz patinası.',
   },
 ];
 
@@ -197,20 +213,34 @@ export default function ExploreScreen() {
   const theme = useTheme();
   const colors = theme ?? Colors.dark;
 
-  const [activeTab, setActiveTab] = useState<'glossary' | 'timeline'>('glossary');
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState<string>('Tümü');
+  // Açık olan terimin ID'si (Akordeon durumu)
+  const [expandedId, setExpandedId] = useState<string | null>('avers');
 
-  // Terim arama filtrelemesi
+  const categories = ['Tümü', 'Anatomi', 'Birim', 'Maden', 'Üretim', 'Sanat'];
+
+  // Terim Arama ve Kategori Filtresi
   const filteredTerms = useMemo(() => {
-    const q = searchTerm.trim().toLowerCase();
-    if (!q) return GLOSSARY_TERMS;
-    return GLOSSARY_TERMS.filter(
-      (item) =>
+    return GLOSSARY_DATA.filter((item) => {
+      const matchesCategory =
+        selectedCategory === 'Tümü' || item.category === selectedCategory;
+
+      const q = searchQuery.trim().toLowerCase();
+      const matchesSearch =
+        q === '' ||
         item.term.toLowerCase().includes(q) ||
-        item.description.toLowerCase().includes(q) ||
-        item.category.toLowerCase().includes(q)
-    );
-  }, [searchTerm]);
+        item.shortDesc.toLowerCase().includes(q) ||
+        item.fullDesc.toLowerCase().includes(q) ||
+        item.historicalSignificance.toLowerCase().includes(q);
+
+      return matchesCategory && matchesSearch;
+    });
+  }, [searchQuery, selectedCategory]);
+
+  const toggleAccordion = (id: string) => {
+    setExpandedId((prev) => (prev === id ? null : id));
+  };
 
   return (
     <SafeAreaView
@@ -219,314 +249,291 @@ export default function ExploreScreen() {
       <StatusBar style="light" />
 
       <View style={styles.container}>
-        {/* 1. ÜST BAŞLIK */}
+        {/* 1. ÜST BAŞLIK ALANI */}
         <View style={styles.header}>
           <Text style={[styles.eyebrow, { color: colors.gold }]}>
-            REHBER & BİLGİ BANKASI
+            NÜMİSMATİK REHBERİ
           </Text>
           <Text style={[styles.title, { color: colors.text }]}>
-            NÜMİSMATİK & MEDENİYETLER
+            ANTİK TERİMLER SÖZLÜĞÜ
           </Text>
           <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-            Antik terimler sözlüğü ve para basan medeniyetlerin tarihsel gelişimi
+            Sikke anatomisi, para birimleri, darphane teknikleri ve nümizmatik terminolojisi
           </Text>
         </View>
 
-        {/* 2. İKİ SEKMELİ KONTROL (Segmented Switcher) */}
+        {/* 2. ARAMA ÇUBUĞU */}
         <View
           style={[
-            styles.segmentContainer,
-            { backgroundColor: colors.surface, borderColor: colors.border },
+            styles.searchContainer,
+            {
+              backgroundColor: colors.surface,
+              borderColor: colors.border,
+            },
           ]}>
-          <TouchableOpacity
-            activeOpacity={0.8}
-            onPress={() => setActiveTab('glossary')}
-            style={[
-              styles.segmentButton,
-              activeTab === 'glossary' && {
-                backgroundColor: colors.gold,
-              },
-            ]}>
-            <Ionicons
-              name="book-outline"
-              size={16}
-              color={activeTab === 'glossary' ? '#121417' : colors.textSecondary}
-            />
-            <Text
-              style={[
-                styles.segmentText,
-                activeTab === 'glossary'
-                  ? { color: '#121417', fontWeight: '700' }
-                  : { color: colors.textSecondary, fontWeight: '600' },
-              ]}>
-              Antik Terimler ({GLOSSARY_TERMS.length})
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            activeOpacity={0.8}
-            onPress={() => setActiveTab('timeline')}
-            style={[
-              styles.segmentButton,
-              activeTab === 'timeline' && {
-                backgroundColor: colors.gold,
-              },
-            ]}>
-            <Ionicons
-              name="hourglass-outline"
-              size={16}
-              color={activeTab === 'timeline' ? '#121417' : colors.textSecondary}
-            />
-            <Text
-              style={[
-                styles.segmentText,
-                activeTab === 'timeline'
-                  ? { color: '#121417', fontWeight: '700' }
-                  : { color: colors.textSecondary, fontWeight: '600' },
-              ]}>
-              Zaman Çizelgesi ({TIMELINE_EVENTS.length})
-            </Text>
-          </TouchableOpacity>
+          <Ionicons
+            name="search-outline"
+            size={18}
+            color={colors.gold}
+            style={styles.searchIcon}
+          />
+          <TextInput
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            placeholder="Terim, birim veya tanım ara (Örn: Avers, Drahmi)..."
+            placeholderTextColor={colors.textMuted}
+            style={[styles.searchInput, { color: colors.text }]}
+            clearButtonMode="while-editing"
+          />
+          {searchQuery.length > 0 && Platform.OS !== 'ios' && (
+            <TouchableOpacity onPress={() => setSearchQuery('')} hitSlop={10}>
+              <Ionicons
+                name="close-circle"
+                size={18}
+                color={colors.textSecondary}
+              />
+            </TouchableOpacity>
+          )}
         </View>
 
-        {/* 3. İÇERİK ALANI */}
-        {activeTab === 'glossary' ? (
+        {/* 3. KATEGORİ FİLTRE HAPLARI */}
+        <View style={styles.filterRow}>
           <ScrollView
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={[
-              styles.scrollContent,
-              { paddingBottom: BottomTabInset + Spacing.xl + 20 },
-            ]}>
-            {/* Terim Arama Çubuğu */}
-            <View
-              style={[
-                styles.searchBox,
-                { backgroundColor: colors.surface, borderColor: colors.border },
-              ]}>
-              <Ionicons
-                name="search-outline"
-                size={18}
-                color={colors.gold}
-                style={styles.searchIcon}
-              />
-              <TextInput
-                value={searchTerm}
-                onChangeText={setSearchTerm}
-                placeholder="Terim, maden veya açıklama ara..."
-                placeholderTextColor={colors.textMuted}
-                style={[styles.searchInput, { color: colors.text }]}
-                clearButtonMode="while-editing"
-              />
-              {searchTerm.length > 0 && Platform.OS !== 'ios' && (
-                <TouchableOpacity onPress={() => setSearchTerm('')} hitSlop={10}>
-                  <Ionicons
-                    name="close-circle"
-                    size={16}
-                    color={colors.textSecondary}
-                  />
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.filterContent}>
+            {categories.map((cat) => {
+              const isSelected = selectedCategory === cat;
+              return (
+                <TouchableOpacity
+                  key={cat}
+                  activeOpacity={0.75}
+                  onPress={() => setSelectedCategory(cat)}
+                  style={[
+                    styles.filterPill,
+                    isSelected
+                      ? {
+                          backgroundColor: colors.gold,
+                          borderColor: colors.goldLight,
+                        }
+                      : {
+                          backgroundColor: colors.surface,
+                          borderColor: colors.border,
+                        },
+                  ]}>
+                  <Text
+                    style={[
+                      styles.filterText,
+                      isSelected
+                        ? { color: '#121417', fontWeight: '700' }
+                        : { color: colors.textSecondary, fontWeight: '500' },
+                    ]}>
+                    {cat}
+                  </Text>
                 </TouchableOpacity>
-              )}
-            </View>
+              );
+            })}
+          </ScrollView>
+        </View>
 
-            {/* Terim Kartları Listesi */}
-            {filteredTerms.length === 0 ? (
-              <View style={styles.emptyState}>
+        {/* 4. SAYAÇ / DURUM ÇUBUĞU */}
+        <View style={styles.countRow}>
+          <Text style={[styles.countText, { color: colors.textMuted }]}>
+            {filteredTerms.length} Terim Listeleniyor
+          </Text>
+          {expandedId && (
+            <TouchableOpacity onPress={() => setExpandedId(null)}>
+              <Text style={[styles.collapseAllText, { color: colors.gold }]}>
+                Hepsini Kapat
+              </Text>
+            </TouchableOpacity>
+          )}
+        </View>
+
+        {/* 5. AKORDEON KART LİSTESİ */}
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={[
+            styles.scrollList,
+            { paddingBottom: BottomTabInset + Spacing.xl + 20 },
+          ]}>
+          {filteredTerms.length === 0 ? (
+            <View style={styles.emptyContainer}>
+              <View
+                style={[
+                  styles.emptyIconWrapper,
+                  {
+                    backgroundColor: colors.surface,
+                    borderColor: colors.borderGold,
+                  },
+                ]}>
                 <Ionicons
-                  name="help-circle-outline"
-                  size={42}
+                  name="book-outline"
+                  size={40}
                   color={colors.gold}
                 />
-                <Text style={[styles.emptyTitle, { color: colors.text }]}>
-                  Terim Bulunamadı
-                </Text>
-                <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-                  "{searchTerm}" aramasıyla eşleşen bir nümismatik terim bulunamadı.
-                </Text>
               </View>
-            ) : (
-              <View style={styles.termsList}>
-                {filteredTerms.map((item) => (
-                  <View
-                    key={item.id}
-                    style={[
-                      styles.termCard,
-                      {
-                        backgroundColor: colors.surface,
-                        borderColor: colors.border,
-                      },
-                    ]}>
-                    <View style={styles.termHeader}>
-                      <Text style={[styles.termTitle, { color: colors.text }]}>
-                        {item.term}
-                      </Text>
+              <Text style={[styles.emptyTitle, { color: colors.text }]}>
+                Terim Bulunamadı
+              </Text>
+              <Text style={[styles.emptyDesc, { color: colors.textSecondary }]}>
+                "{searchQuery}" aramasına uygun bir nümizmatik terim bulunamadı.
+              </Text>
+              <TouchableOpacity
+                onPress={() => {
+                  setSearchQuery('');
+                  setSelectedCategory('Tümü');
+                }}
+                style={[
+                  styles.resetBtn,
+                  { borderColor: colors.gold, backgroundColor: 'rgba(212, 175, 55, 0.1)' },
+                ]}>
+                <Text style={[styles.resetBtnText, { color: colors.gold }]}>
+                  Aramayı Sıfırla
+                </Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            filteredTerms.map((item) => {
+              const isExpanded = expandedId === item.id;
+              return (
+                <View
+                  key={item.id}
+                  style={[
+                    styles.card,
+                    {
+                      backgroundColor: colors.surface,
+                      borderColor: isExpanded ? colors.gold : colors.border,
+                    },
+                    isExpanded && styles.cardExpandedGlow,
+                  ]}>
+                  {/* Kart Başlığı / Tıklanabilir Akordeon Çubuğu */}
+                  <TouchableOpacity
+                    activeOpacity={0.7}
+                    onPress={() => toggleAccordion(item.id)}
+                    style={styles.cardHeader}>
+                    {/* Sol Bölüm: İkon ve İsim */}
+                    <View style={styles.cardHeaderLeft}>
                       <View
                         style={[
-                          styles.categoryBadge,
+                          styles.termIconCircle,
+                          {
+                            backgroundColor: isExpanded
+                              ? 'rgba(212, 175, 55, 0.2)'
+                              : colors.background,
+                            borderColor: isExpanded ? colors.gold : colors.border,
+                          },
+                        ]}>
+                        <Ionicons
+                          name={item.icon}
+                          size={18}
+                          color={isExpanded ? colors.gold : colors.textSecondary}
+                        />
+                      </View>
+                      <View style={styles.termTitleBlock}>
+                        <Text
+                          style={[
+                            styles.termTitle,
+                            { color: isExpanded ? colors.goldLight : colors.text },
+                          ]}>
+                          {item.term}
+                        </Text>
+                        {!isExpanded && (
+                          <Text
+                            numberOfLines={1}
+                            style={[styles.termShortDesc, { color: colors.textSecondary }]}>
+                            {item.shortDesc}
+                          </Text>
+                        )}
+                      </View>
+                    </View>
+
+                    {/* Sağ Bölüm: Kategori Rozeti ve Açılır Ok */}
+                    <View style={styles.cardHeaderRight}>
+                      <View
+                        style={[
+                          styles.catBadge,
                           {
                             backgroundColor: 'rgba(212, 175, 55, 0.12)',
                             borderColor: colors.borderGold,
                           },
                         ]}>
-                        <Text style={[styles.categoryBadgeText, { color: colors.gold }]}>
+                        <Text style={[styles.catBadgeText, { color: colors.gold }]}>
                           {item.category}
                         </Text>
                       </View>
+
+                      <Ionicons
+                        name={isExpanded ? 'chevron-up' : 'chevron-down'}
+                        size={18}
+                        color={isExpanded ? colors.gold : colors.textMuted}
+                        style={styles.chevron}
+                      />
                     </View>
+                  </TouchableOpacity>
 
-                    <Text style={[styles.termDesc, { color: colors.textSecondary }]}>
-                      {item.description}
-                    </Text>
+                  {/* Genişletilmiş Akordeon İçeriği */}
+                  {isExpanded && (
+                    <View style={[styles.expandedContent, { borderTopColor: colors.border }]}>
+                      {/* Ayrıntılı Açıklama */}
+                      <Text style={[styles.fullDescription, { color: colors.text }]}>
+                        {item.fullDesc}
+                      </Text>
 
-                    {item.example && (
+                      {/* Tarihsel Önemi Kutusu */}
+                      <View
+                        style={[
+                          styles.significanceBox,
+                          {
+                            backgroundColor: colors.background,
+                            borderColor: colors.borderGold,
+                          },
+                        ]}>
+                        <View style={styles.sectionHeadingRow}>
+                          <Ionicons name="sparkles" size={13} color={colors.gold} />
+                          <Text
+                            style={[
+                              styles.sectionHeadingTitle,
+                              { color: colors.goldLight },
+                            ]}>
+                            Tarihsel Önemi & İşlevi
+                          </Text>
+                        </View>
+                        <Text
+                          style={[
+                            styles.significanceText,
+                            { color: colors.textSecondary },
+                          ]}>
+                          {item.historicalSignificance}
+                        </Text>
+                      </View>
+
+                      {/* Örnek Eser Bilgisi */}
                       <View
                         style={[
                           styles.exampleBox,
                           {
-                            backgroundColor: colors.background,
-                            borderColor: colors.border,
+                            backgroundColor: 'rgba(212, 175, 55, 0.08)',
+                            borderColor: 'rgba(212, 175, 55, 0.25)',
                           },
                         ]}>
                         <Ionicons
-                          name="sparkles-outline"
-                          size={13}
+                          name="compass-outline"
+                          size={14}
                           color={colors.gold}
                         />
-                        <Text style={[styles.exampleText, { color: colors.textMuted }]}>
+                        <Text
+                          style={[styles.exampleText, { color: colors.goldLight }]}>
                           {item.example}
                         </Text>
                       </View>
-                    )}
-                  </View>
-                ))}
-              </View>
-            )}
-          </ScrollView>
-        ) : (
-          /* Medeniyet Zaman Çizelgesi */
-          <ScrollView
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={[
-              styles.scrollContent,
-              { paddingBottom: BottomTabInset + Spacing.xl + 20 },
-            ]}>
-            <View style={styles.timelineList}>
-              {TIMELINE_EVENTS.map((event, index) => {
-                const isLast = index === TIMELINE_EVENTS.length - 1;
-                return (
-                  <View key={event.id} style={styles.timelineRow}>
-                    {/* Sol Sütun: Dikey Çizgi ve İkon Düğümü */}
-                    <View style={styles.timelineTrack}>
-                      <View
-                        style={[
-                          styles.timelineNode,
-                          {
-                            backgroundColor: colors.surface,
-                            borderColor: colors.gold,
-                          },
-                        ]}>
-                        <View
-                          style={[
-                            styles.timelineInnerDot,
-                            { backgroundColor: colors.gold },
-                          ]}
-                        />
-                      </View>
-                      {!isLast && (
-                        <View
-                          style={[
-                            styles.timelineLine,
-                            { backgroundColor: 'rgba(212, 175, 55, 0.3)' },
-                          ]}
-                        />
-                      )}
                     </View>
-
-                    {/* Sağ Sütun: Medeniyet Bilgi Kartı */}
-                    <View
-                      style={[
-                        styles.timelineCard,
-                        {
-                          backgroundColor: colors.surface,
-                          borderColor: colors.border,
-                        },
-                      ]}>
-                      {/* Dönem Rozeti ve Başlık */}
-                      <View style={styles.timelineCardHeader}>
-                        <Text
-                          style={[styles.civilizationTitle, { color: colors.text }]}>
-                          {event.civilization}
-                        </Text>
-                        <View
-                          style={[
-                            styles.eraBadge,
-                            {
-                              backgroundColor: 'rgba(212, 175, 55, 0.12)',
-                              borderColor: colors.borderGold,
-                            },
-                          ]}>
-                          <Text style={[styles.eraBadgeText, { color: colors.gold }]}>
-                            {event.era}
-                          </Text>
-                        </View>
-                      </View>
-
-                      {/* Özet */}
-                      <Text style={[styles.timelineSummary, { color: colors.textSecondary }]}>
-                        {event.summary}
-                      </Text>
-
-                      {/* Darphane ve Önemli Sikke */}
-                      <View style={styles.timelineMeta}>
-                        <View style={styles.metaItem}>
-                          <Ionicons name="disc" size={13} color={colors.gold} />
-                          <Text style={[styles.metaLabel, { color: colors.textMuted }]}>
-                            Sikke:{' '}
-                            <Text style={{ color: colors.text, fontWeight: '600' }}>
-                              {event.keyCoin}
-                            </Text>
-                          </Text>
-                        </View>
-
-                        <View style={styles.metaItem}>
-                          <Ionicons
-                            name="location-outline"
-                            size={13}
-                            color={colors.gold}
-                          />
-                          <Text style={[styles.metaLabel, { color: colors.textMuted }]}>
-                            Darphane:{' '}
-                            <Text style={{ color: colors.text, fontWeight: '600' }}>
-                              {event.mint}
-                            </Text>
-                          </Text>
-                        </View>
-                      </View>
-
-                      {/* Tarihsel Etki Notu */}
-                      <View
-                        style={[
-                          styles.impactBox,
-                          {
-                            backgroundColor: colors.background,
-                            borderColor: 'rgba(212, 175, 55, 0.2)',
-                          },
-                        ]}>
-                        <Ionicons
-                          name="flash-outline"
-                          size={13}
-                          color={colors.gold}
-                        />
-                        <Text style={[styles.impactText, { color: colors.goldLight }]}>
-                          {event.impact}
-                        </Text>
-                      </View>
-                    </View>
-                  </View>
-                );
-              })}
-            </View>
-          </ScrollView>
-        )}
+                  )}
+                </View>
+              );
+            })
+          )}
+        </ScrollView>
       </View>
     </SafeAreaView>
   );
@@ -551,10 +558,10 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '700',
     letterSpacing: 1.5,
-    marginBottom: 2,
+    marginBottom: 4,
   },
   title: {
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: '800',
     letterSpacing: 0.5,
   },
@@ -563,205 +570,204 @@ const styles = StyleSheet.create({
     marginTop: 4,
     lineHeight: 18,
   },
-  segmentContainer: {
-    flexDirection: 'row',
-    borderRadius: BorderRadius.md,
-    borderWidth: 1,
-    padding: 3,
-    marginBottom: Spacing.md,
-  },
-  segmentButton: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: Spacing.xs + 4,
-    borderRadius: BorderRadius.sm,
-    gap: 6,
-  },
-  segmentText: {
-    fontSize: 12,
-    letterSpacing: 0.2,
-  },
-  scrollContent: {
-    paddingTop: Spacing.xs,
-  },
-  searchBox: {
+  searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: Spacing.md,
-    paddingVertical: Platform.select({ ios: Spacing.sm, default: 6 }),
+    paddingVertical: Platform.select({ ios: Spacing.sm, default: 8 }),
     borderRadius: BorderRadius.md,
     borderWidth: 1,
-    marginBottom: Spacing.md,
+    marginBottom: Spacing.sm,
   },
   searchIcon: {
     marginRight: Spacing.sm,
   },
   searchInput: {
     flex: 1,
-    fontSize: 13,
+    fontSize: 14,
+    paddingVertical: 2,
+  },
+  filterRow: {
+    marginBottom: Spacing.xs,
+  },
+  filterContent: {
+    gap: Spacing.xs + 2,
+    paddingRight: Spacing.md,
     paddingVertical: 4,
   },
-  termsList: {
-    gap: Spacing.sm,
-  },
-  termCard: {
-    padding: Spacing.md,
-    borderRadius: BorderRadius.lg,
+  filterPill: {
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.xs + 2,
+    borderRadius: BorderRadius.full,
     borderWidth: 1,
   },
-  termHeader: {
+  filterText: {
+    fontSize: 12,
+    letterSpacing: 0.3,
+  },
+  countRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: Spacing.xs + 2,
+    marginBottom: Spacing.xs,
+  },
+  countText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  collapseAllText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  scrollList: {
+    paddingTop: Spacing.xs,
+    gap: Spacing.sm,
+  },
+  card: {
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    overflow: 'hidden',
+  },
+  cardExpandedGlow: {
+    shadowColor: '#D4AF37',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  cardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: Spacing.xs,
+    padding: Spacing.md,
+  },
+  cardHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    paddingRight: Spacing.sm,
+  },
+  termIconCircle: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: Spacing.sm + 2,
+  },
+  termTitleBlock: {
+    flex: 1,
   },
   termTitle: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '700',
-    flex: 1,
-    paddingRight: Spacing.xs,
+    lineHeight: 20,
   },
-  categoryBadge: {
+  termShortDesc: {
+    fontSize: 12,
+    marginTop: 2,
+  },
+  cardHeaderRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs + 2,
+  },
+  catBadge: {
     paddingHorizontal: Spacing.sm,
-    paddingVertical: 2,
+    paddingVertical: 3,
     borderRadius: BorderRadius.sm,
     borderWidth: 0.5,
   },
-  categoryBadgeText: {
+  catBadgeText: {
     fontSize: 10,
     fontWeight: '700',
-    letterSpacing: 0.5,
+    letterSpacing: 0.4,
   },
-  termDesc: {
+  chevron: {
+    marginLeft: 2,
+  },
+  expandedContent: {
+    borderTopWidth: 1,
+    padding: Spacing.md,
+    paddingTop: Spacing.sm + 4,
+    gap: Spacing.sm,
+  },
+  fullDescription: {
+    fontSize: 14,
+    lineHeight: 22,
+    fontWeight: '400',
+  },
+  significanceBox: {
+    padding: Spacing.md,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    gap: 4,
+  },
+  sectionHeadingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 2,
+  },
+  sectionHeadingTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 0.3,
+  },
+  significanceText: {
     fontSize: 13,
-    lineHeight: 20,
-    marginTop: 2,
+    lineHeight: 19,
   },
   exampleBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: 6,
-    borderRadius: BorderRadius.sm,
-    borderWidth: 0.5,
-    marginTop: Spacing.sm,
+    gap: 8,
+    paddingHorizontal: Spacing.sm + 4,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
   },
   exampleText: {
     fontSize: 12,
-    fontStyle: 'italic',
+    fontWeight: '600',
     flex: 1,
   },
-  emptyState: {
+  emptyContainer: {
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: Spacing.xxl,
-    gap: Spacing.xs,
+    paddingHorizontal: Spacing.lg,
+  },
+  emptyIconWrapper: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: Spacing.md,
   },
   emptyTitle: {
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: '700',
-    marginTop: Spacing.xs,
+    marginBottom: Spacing.xs,
   },
-  emptyText: {
+  emptyDesc: {
     fontSize: 13,
     textAlign: 'center',
     lineHeight: 18,
-  },
-  timelineList: {
-    gap: 0,
-  },
-  timelineRow: {
-    flexDirection: 'row',
-  },
-  timelineTrack: {
-    width: 32,
-    alignItems: 'center',
-  },
-  timelineNode: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    borderWidth: 2,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginTop: 6,
-    zIndex: 2,
-  },
-  timelineInnerDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
-  timelineLine: {
-    width: 2,
-    flex: 1,
-    marginTop: -2,
-    marginBottom: -6,
-  },
-  timelineCard: {
-    flex: 1,
-    marginLeft: Spacing.sm,
     marginBottom: Spacing.md,
-    padding: Spacing.md,
-    borderRadius: BorderRadius.lg,
+  },
+  resetBtn: {
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.xs + 3,
+    borderRadius: BorderRadius.sm,
     borderWidth: 1,
   },
-  timelineCardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: Spacing.xs,
-    flexWrap: 'wrap',
-    gap: 4,
-  },
-  civilizationTitle: {
-    fontSize: 16,
-    fontWeight: '800',
-  },
-  eraBadge: {
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: 2,
-    borderRadius: BorderRadius.sm,
-    borderWidth: 0.5,
-  },
-  eraBadgeText: {
-    fontSize: 10,
-    fontWeight: '700',
-  },
-  timelineSummary: {
+  resetBtnText: {
     fontSize: 13,
-    lineHeight: 19,
-    marginTop: 4,
-    marginBottom: Spacing.sm,
-  },
-  timelineMeta: {
-    gap: 4,
-    marginBottom: Spacing.xs,
-  },
-  metaItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  metaLabel: {
-    fontSize: 12,
-  },
-  impactBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: 6,
-    borderRadius: BorderRadius.sm,
-    borderWidth: 1,
-    marginTop: Spacing.xs,
-  },
-  impactText: {
-    fontSize: 11,
     fontWeight: '600',
-    flex: 1,
   },
 });

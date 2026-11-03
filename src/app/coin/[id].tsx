@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import {
+  Dimensions,
+  Modal,
   Platform,
   ScrollView,
   Share,
@@ -18,6 +20,8 @@ import { BorderRadius, Colors, MaxContentWidth, Spacing } from '@/constants/them
 import { MOCK_COINS } from '@/data/mockData';
 import { useTheme } from '@/hooks/use-theme';
 
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+
 export default function CoinDetailScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -26,6 +30,12 @@ export default function CoinDetailScreen() {
 
   // Ön (avers) / Arka (revers) yüz durumu
   const [activeFace, setActiveFace] = useState<'obverse' | 'reverse'>('obverse');
+
+  // Tam ekran modal önizleme durumu
+  const [isModalVisible, setIsModalVisible] = useState(false);
+
+  // Koleksiyonuma Ekle / Favori durumu
+  const [isCollected, setIsCollected] = useState(false);
 
   // Sikkeyi id'ye göre bul
   const coin = MOCK_COINS.find((item) => item.id === id);
@@ -40,6 +50,10 @@ export default function CoinDetailScreen() {
     } catch {
       // Paylaşım iptal edildi veya desteklenmiyor
     }
+  };
+
+  const toggleCollection = () => {
+    setIsCollected((prev) => !prev);
   };
 
   if (!coin) {
@@ -73,7 +87,7 @@ export default function CoinDetailScreen() {
       edges={['top']}>
       <StatusBar style="light" />
 
-      {/* 1. ÜST BAR (Geri Dön, Başlık, Paylaş) */}
+      {/* 1. ÜST BAR (Geri Dön, Başlık, Favori, Paylaş) */}
       <View style={[styles.topBar, { borderBottomColor: colors.border }]}>
         <TouchableOpacity
           activeOpacity={0.7}
@@ -93,12 +107,33 @@ export default function CoinDetailScreen() {
           </Text>
         </View>
 
-        <TouchableOpacity
-          activeOpacity={0.7}
-          onPress={handleShare}
-          style={[styles.navButton, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-          <Ionicons name="share-social-outline" size={20} color={colors.gold} />
-        </TouchableOpacity>
+        <View style={styles.topBarActions}>
+          {/* Hızlı Favori Butonu */}
+          <TouchableOpacity
+            activeOpacity={0.7}
+            onPress={toggleCollection}
+            style={[
+              styles.navButton,
+              {
+                backgroundColor: isCollected ? 'rgba(212, 175, 55, 0.2)' : colors.surface,
+                borderColor: isCollected ? colors.gold : colors.border,
+              },
+            ]}>
+            <Ionicons
+              name={isCollected ? 'bookmark' : 'bookmark-outline'}
+              size={18}
+              color={isCollected ? colors.gold : colors.textSecondary}
+            />
+          </TouchableOpacity>
+
+          {/* Paylaş Butonu */}
+          <TouchableOpacity
+            activeOpacity={0.7}
+            onPress={handleShare}
+            style={[styles.navButton, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <Ionicons name="share-social-outline" size={18} color={colors.gold} />
+          </TouchableOpacity>
+        </View>
       </View>
 
       <ScrollView
@@ -106,7 +141,9 @@ export default function CoinDetailScreen() {
         contentContainerStyle={styles.scrollContent}>
         <View style={styles.innerContainer}>
           {/* 2. BÜYÜK GÖRSEL ALANI & ÖN/ARKA YÜZ DEĞİŞTİRİCİ */}
-          <View
+          <TouchableOpacity
+            activeOpacity={0.92}
+            onPress={() => setIsModalVisible(true)}
             style={[
               styles.imageContainer,
               {
@@ -115,9 +152,17 @@ export default function CoinDetailScreen() {
               },
             ]}>
             {/* Rozet gösterge */}
-            <View style={[styles.faceBadge, { backgroundColor: 'rgba(18, 20, 23, 0.85)', borderColor: colors.borderGold }]}>
+            <View style={[styles.faceBadge, { backgroundColor: 'rgba(18, 20, 23, 0.88)', borderColor: colors.borderGold }]}>
               <Text style={[styles.faceBadgeText, { color: colors.gold }]}>
                 {activeFace === 'obverse' ? 'AVERS (ÖN YÜZ)' : 'REVERS (ARKA YÜZ)'}
+              </Text>
+            </View>
+
+            {/* Büyütme / Tam Ekran Rozeti */}
+            <View style={[styles.zoomHintBadge, { backgroundColor: 'rgba(18, 20, 23, 0.88)', borderColor: colors.borderGold }]}>
+              <Ionicons name="scan-outline" size={13} color={colors.gold} />
+              <Text style={[styles.zoomHintText, { color: colors.textSecondary }]}>
+                Tam Ekran İncele
               </Text>
             </View>
 
@@ -127,7 +172,7 @@ export default function CoinDetailScreen() {
               contentFit="contain"
               transition={300}
             />
-          </View>
+          </TouchableOpacity>
 
           {/* Ön / Arka Yüz Butonları */}
           <View style={styles.toggleRow}>
@@ -182,6 +227,39 @@ export default function CoinDetailScreen() {
             </TouchableOpacity>
           </View>
 
+          {/* 3. KOLEKSİYONUMA EKLE / FAVORİYE AL BUTONU */}
+          <TouchableOpacity
+            activeOpacity={0.82}
+            onPress={toggleCollection}
+            style={[
+              styles.collectionButton,
+              isCollected
+                ? {
+                    backgroundColor: colors.gold,
+                    borderColor: colors.goldLight,
+                  }
+                : {
+                    backgroundColor: colors.surface,
+                    borderColor: colors.borderGold,
+                  },
+            ]}>
+            <Ionicons
+              name={isCollected ? 'bookmark' : 'bookmark-outline'}
+              size={20}
+              color={isCollected ? '#121417' : colors.gold}
+            />
+            <Text
+              style={[
+                styles.collectionButtonText,
+                { color: isCollected ? '#121417' : colors.gold },
+              ]}>
+              {isCollected ? 'Koleksiyonunuzda Kayıtlı' : 'Koleksiyonuma Ekle'}
+            </Text>
+            {isCollected && (
+              <Ionicons name="checkmark-circle" size={17} color="#121417" />
+            )}
+          </TouchableOpacity>
+
           {/* Sikke Başlığı ve Hükümdar */}
           <View style={styles.titleSection}>
             <Text style={[styles.coinTitle, { color: colors.text }]}>
@@ -195,7 +273,7 @@ export default function CoinDetailScreen() {
             </View>
           </View>
 
-          {/* 3. DEĞER ALANI (Altın Çerçeveli Özel Kart) */}
+          {/* 4. DEĞER ALANI (Altın Çerçeveli Özel Kart) */}
           <View
             style={[
               styles.valueCard,
@@ -237,7 +315,7 @@ export default function CoinDetailScreen() {
             </View>
           </View>
 
-          {/* 4. BİLGİ KUTUCUKLARI (2x2 Grid) */}
+          {/* 5. BİLGİ KUTUCUKLARI (2x2 Grid) */}
           <View style={styles.gridContainer}>
             {/* Materyal */}
             <View
@@ -302,7 +380,7 @@ export default function CoinDetailScreen() {
             </View>
           </View>
 
-          {/* 5. METİN ALANLARI (Avers, Revers ve Tarihsel Açıklama) */}
+          {/* 6. METİN ALANLARI (Avers, Revers ve Tarihsel Açıklama) */}
           <View style={styles.descriptionsContainer}>
             {/* Avers Betimlemesi */}
             <View
@@ -357,6 +435,92 @@ export default function CoinDetailScreen() {
           </View>
         </View>
       </ScrollView>
+
+      {/* 7. TAM EKRAN GÖRSEL İNCELEME MODALI */}
+      <Modal
+        visible={isModalVisible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setIsModalVisible(false)}>
+        <View style={styles.modalBackdrop}>
+          <SafeAreaView style={styles.modalSafeArea}>
+            {/* Modal Üst Çubuk */}
+            <View style={styles.modalHeader}>
+              <View style={styles.modalHeaderTitleBlock}>
+                <Text style={[styles.modalSub, { color: colors.gold }]}>
+                  YÜKSEK ÇÖZÜNÜRLÜKLÜ DETAY İNCELEME
+                </Text>
+                <Text style={styles.modalTitle}>
+                  {activeFace === 'obverse' ? 'ÖN YÜZ (AVERS)' : 'ARKA YÜZ (REVERS)'}
+                </Text>
+              </View>
+
+              {/* Kapat Butonu */}
+              <TouchableOpacity
+                activeOpacity={0.7}
+                onPress={() => setIsModalVisible(false)}
+                style={styles.modalCloseButton}>
+                <Ionicons name="close" size={26} color="#FFFFFF" />
+              </TouchableOpacity>
+            </View>
+
+            {/* Modal Görsel Alanı */}
+            <View style={styles.modalImageContainer}>
+              <Image
+                source={{ uri: currentImage }}
+                style={styles.modalImage}
+                contentFit="contain"
+                transition={200}
+              />
+            </View>
+
+            {/* Modal Alt Çubuk: Yüz Değiştirici ve Bilgi */}
+            <View style={styles.modalFooter}>
+              <View style={styles.modalToggleRow}>
+                <TouchableOpacity
+                  activeOpacity={0.8}
+                  onPress={() => setActiveFace('obverse')}
+                  style={[
+                    styles.modalToggleBtn,
+                    activeFace === 'obverse'
+                      ? { backgroundColor: colors.gold, borderColor: colors.goldLight }
+                      : { backgroundColor: 'rgba(255,255,255,0.1)', borderColor: 'rgba(255,255,255,0.2)' },
+                  ]}>
+                  <Text
+                    style={[
+                      styles.modalToggleText,
+                      activeFace === 'obverse' ? { color: '#121417', fontWeight: '700' } : { color: '#FFF' },
+                    ]}>
+                    Ön Yüz (Avers)
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  activeOpacity={0.8}
+                  onPress={() => setActiveFace('reverse')}
+                  style={[
+                    styles.modalToggleBtn,
+                    activeFace === 'reverse'
+                      ? { backgroundColor: colors.gold, borderColor: colors.goldLight }
+                      : { backgroundColor: 'rgba(255,255,255,0.1)', borderColor: 'rgba(255,255,255,0.2)' },
+                  ]}>
+                  <Text
+                    style={[
+                      styles.modalToggleText,
+                      activeFace === 'reverse' ? { color: '#121417', fontWeight: '700' } : { color: '#FFF' },
+                    ]}>
+                    Arka Yüz (Revers)
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
+              <Text style={styles.modalHint}>
+                {coin.title} • {coin.material} • {coin.diameter}
+              </Text>
+            </View>
+          </SafeAreaView>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -374,12 +538,17 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
   },
   navButton: {
-    width: 40,
-    height: 40,
+    width: 38,
+    height: 38,
     borderRadius: BorderRadius.md,
     borderWidth: 1,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  topBarActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs + 2,
   },
   topBarTitleWrapper: {
     flex: 1,
@@ -436,6 +605,24 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     letterSpacing: 0.8,
   },
+  zoomHintBadge: {
+    position: 'absolute',
+    bottom: Spacing.sm,
+    right: Spacing.sm,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 4,
+    borderRadius: BorderRadius.sm,
+    borderWidth: 1,
+    zIndex: 10,
+  },
+  zoomHintText: {
+    fontSize: 10,
+    fontWeight: '600',
+    letterSpacing: 0.3,
+  },
   mainImage: {
     width: '88%',
     height: '88%',
@@ -458,8 +645,28 @@ const styles = StyleSheet.create({
   toggleText: {
     fontSize: 13,
   },
+  collectionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.sm,
+    paddingVertical: Spacing.sm + 4,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1.2,
+    marginTop: Spacing.sm + 2,
+    shadowColor: '#D4AF37',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  collectionButtonText: {
+    fontSize: 14,
+    fontWeight: '700',
+    letterSpacing: 0.3,
+  },
   titleSection: {
-    marginTop: Spacing.lg,
+    marginTop: Spacing.md,
     marginBottom: Spacing.xs,
   },
   coinTitle: {
@@ -609,5 +816,83 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     fontSize: 14,
   },
-});
 
+  // Modal Stilleri
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(8, 9, 11, 0.96)',
+    justifyContent: 'space-between',
+  },
+  modalSafeArea: {
+    flex: 1,
+    justifyContent: 'space-between',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
+  },
+  modalHeaderTitleBlock: {
+    flex: 1,
+  },
+  modalSub: {
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 1.2,
+  },
+  modalTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    marginTop: 2,
+  },
+  modalCloseButton: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: Spacing.md,
+  },
+  modalImageContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: Spacing.md,
+  },
+  modalImage: {
+    width: SCREEN_WIDTH * 0.9,
+    height: SCREEN_HEIGHT * 0.6,
+  },
+  modalFooter: {
+    paddingHorizontal: Spacing.lg,
+    paddingBottom: Spacing.xl,
+    alignItems: 'center',
+    gap: Spacing.sm,
+  },
+  modalToggleRow: {
+    flexDirection: 'row',
+    gap: Spacing.sm,
+    width: '100%',
+    maxWidth: 360,
+  },
+  modalToggleBtn: {
+    flex: 1,
+    paddingVertical: Spacing.sm + 2,
+    borderRadius: BorderRadius.md,
+    alignItems: 'center',
+    borderWidth: 1,
+  },
+  modalToggleText: {
+    fontSize: 13,
+  },
+  modalHint: {
+    fontSize: 12,
+    color: 'rgba(255, 255, 255, 0.5)',
+    textAlign: 'center',
+    marginTop: 4,
+  },
+});
