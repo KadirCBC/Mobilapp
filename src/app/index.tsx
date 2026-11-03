@@ -1,4 +1,7 @@
-import React, { useMemo, useState } from 'react';
+import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
+import { useMemo, useState } from 'react';
 import {
   FlatList,
   Platform,
@@ -10,13 +13,10 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
-import { Ionicons } from '@expo/vector-icons';
 
 import { CoinCard } from '@/components/CoinCard';
 import { BorderRadius, BottomTabInset, Colors, MaxContentWidth, Spacing } from '@/constants/theme';
-import { CoinItem, MOCK_COINS } from '@/data/mockData';
+import { MOCK_COINS } from '@/data/mockData';
 import { useTheme } from '@/hooks/use-theme';
 
 const CATEGORIES = [
