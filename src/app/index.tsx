@@ -36,37 +36,25 @@ export default function HomeScreen() {
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('Tümü');
-  const [isFavoriteFilterActive, setIsFavoriteFilterActive] = useState(false);
 
-  // Anlık filtreleme (Kategori + Arama Sorgusu)
+  // Arama ve Kategori Filtreleme
   const filteredCoins = useMemo(() => {
     return MOCK_COINS.filter((coin) => {
-      // Kategori kontrolü
       const matchesCategory =
         selectedCategory === 'Tümü' ||
         coin.civilization.toLowerCase().includes(selectedCategory.toLowerCase());
 
-      // Arama sorgusu kontrolü (başlık, hükümdar, medeniyet, dönem)
-      const q = searchQuery.trim().toLowerCase();
+      const query = searchQuery.trim().toLowerCase();
       const matchesSearch =
-        q === '' ||
-        coin.title.toLowerCase().includes(q) ||
-        coin.ruler.toLowerCase().includes(q) ||
-        coin.civilization.toLowerCase().includes(q) ||
-        coin.period.toLowerCase().includes(q);
+        query === '' ||
+        coin.title.toLowerCase().includes(query) ||
+        coin.ruler.toLowerCase().includes(query) ||
+        coin.civilization.toLowerCase().includes(query) ||
+        coin.period.toLowerCase().includes(query);
 
       return matchesCategory && matchesSearch;
     });
   }, [searchQuery, selectedCategory]);
-
-  const handleCoinPress = (coin: CoinItem) => {
-    router.push(`/coin/${coin.id}` as any);
-  };
-
-  const handleClearFilters = () => {
-    setSearchQuery('');
-    setSelectedCategory('Tümü');
-  };
 
   return (
     <SafeAreaView
@@ -75,37 +63,17 @@ export default function HomeScreen() {
       <StatusBar style="light" />
 
       <View style={styles.container}>
-        {/* 1. ÜST BAŞLIK ALANI */}
+        {/* Üst Kurumsal Başlık */}
         <View style={styles.header}>
-          <View style={styles.headerTitles}>
-            <Text style={[styles.eyebrow, { color: colors.gold }]}>
-              MÜZE & KOLEKSİYON
-            </Text>
-            <Text style={[styles.title, { color: colors.text }]}>
-              TARİHİ ESER & SİKKE ARŞİVİ
-            </Text>
-          </View>
-
-          {/* Favori / Kaydedilenler İkonu */}
-          <TouchableOpacity
-            activeOpacity={0.7}
-            onPress={() => setIsFavoriteFilterActive((prev) => !prev)}
-            style={[
-              styles.iconButton,
-              {
-                backgroundColor: colors.surface,
-                borderColor: isFavoriteFilterActive ? colors.gold : colors.border,
-              },
-            ]}>
-            <Ionicons
-              name={isFavoriteFilterActive ? 'bookmark' : 'bookmark-outline'}
-              size={20}
-              color={isFavoriteFilterActive ? colors.gold : colors.textSecondary}
-            />
-          </TouchableOpacity>
+          <Text style={[styles.eyebrow, { color: colors.gold }]}>
+            MÜZE & NUMİZMATİK KOLEKSİYONU
+          </Text>
+          <Text style={[styles.title, { color: colors.text }]}>
+            TARİHİ ESER & SİKKE ARŞİVİ
+          </Text>
         </View>
 
-        {/* 2. ARAMA ÇUBUĞU */}
+        {/* Arama Çubuğu */}
         <View
           style={[
             styles.searchContainer,
@@ -116,7 +84,7 @@ export default function HomeScreen() {
           ]}>
           <Ionicons
             name="search-outline"
-            size={19}
+            size={18}
             color={colors.gold}
             style={styles.searchIcon}
           />
@@ -126,7 +94,6 @@ export default function HomeScreen() {
             placeholder="Sikke, hükümdar veya medeniyet ara..."
             placeholderTextColor={colors.textMuted}
             style={[styles.searchInput, { color: colors.text }]}
-            returnKeyType="search"
             clearButtonMode="while-editing"
           />
           {searchQuery.length > 0 && Platform.OS !== 'ios' && (
@@ -140,7 +107,7 @@ export default function HomeScreen() {
           )}
         </View>
 
-        {/* 3. KATEGORİ SEKMELERİ (Yatay Kaydırılabilir Hap Butonlar) */}
+        {/* Kategori Filtre Butonları */}
         <View style={styles.categoriesWrapper}>
           <ScrollView
             horizontal
@@ -186,12 +153,15 @@ export default function HomeScreen() {
           </ScrollView>
         </View>
 
-        {/* 4. SİKKE LİSTESİ */}
+        {/* Sikke Listesi (FlatList) */}
         <FlatList
           data={filteredCoins}
           keyExtractor={(item) => item.id}
           renderItem={({ item }) => (
-            <CoinCard item={item} onPress={() => handleCoinPress(item)} />
+            <CoinCard
+              item={item}
+              onPress={() => router.push(`/coin/${item.id}` as any)}
+            />
           )}
           contentContainerStyle={[
             styles.listContent,
@@ -202,31 +172,26 @@ export default function HomeScreen() {
           showsVerticalScrollIndicator={false}
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
-              <View
-                style={[
-                  styles.emptyIconCircle,
-                  {
-                    backgroundColor: colors.surface,
-                    borderColor: colors.borderGold,
-                  },
-                ]}>
-                <Ionicons
-                  name="shield-outline"
-                  size={36}
-                  color={colors.gold}
-                />
-              </View>
+              <Ionicons
+                name="shield-outline"
+                size={42}
+                color={colors.gold}
+                style={styles.emptyIcon}
+              />
               <Text style={[styles.emptyTitle, { color: colors.text }]}>
                 Sonuç Bulunamadı
               </Text>
               <Text
                 style={[styles.emptySubtitle, { color: colors.textSecondary }]}>
-                Aramanıza veya seçtiğiniz kategoriye uygun antik sikke bulunamadı.
+                Aramanıza veya seçilen kategoriye uygun sikke bulunamadı.
               </Text>
               {(searchQuery.length > 0 || selectedCategory !== 'Tümü') && (
                 <TouchableOpacity
                   activeOpacity={0.8}
-                  onPress={handleClearFilters}
+                  onPress={() => {
+                    setSearchQuery('');
+                    setSelectedCategory('Tümü');
+                  }}
                   style={[
                     styles.resetButton,
                     {
@@ -235,7 +200,7 @@ export default function HomeScreen() {
                     },
                   ]}>
                   <Text style={[styles.resetButtonText, { color: colors.gold }]}>
-                    Filtreleri Temizle
+                    Filtreleri Sıfırla
                   </Text>
                 </TouchableOpacity>
               )}
@@ -259,40 +224,25 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.md,
   },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
     paddingTop: Spacing.sm,
     paddingBottom: Spacing.md,
-  },
-  headerTitles: {
-    flex: 1,
-    paddingRight: Spacing.sm,
   },
   eyebrow: {
     fontSize: 11,
     fontWeight: '700',
     letterSpacing: 1.5,
-    marginBottom: 2,
+    marginBottom: 4,
   },
   title: {
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: '800',
     letterSpacing: 0.5,
-  },
-  iconButton: {
-    width: 42,
-    height: 42,
-    borderRadius: BorderRadius.md,
-    borderWidth: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
   },
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: Spacing.md,
-    paddingVertical: Platform.select({ ios: Spacing.sm, default: 6 }),
+    paddingVertical: Platform.select({ ios: Spacing.sm, default: 8 }),
     borderRadius: BorderRadius.md,
     borderWidth: 1,
     marginBottom: Spacing.md,
@@ -303,7 +253,7 @@ const styles = StyleSheet.create({
   searchInput: {
     flex: 1,
     fontSize: 14,
-    paddingVertical: 4,
+    paddingVertical: 2,
   },
   categoriesWrapper: {
     marginBottom: Spacing.md,
@@ -331,20 +281,13 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.xxl,
     paddingHorizontal: Spacing.lg,
   },
-  emptyIconCircle: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: Spacing.md,
+  emptyIcon: {
+    marginBottom: Spacing.sm,
   },
   emptyTitle: {
     fontSize: 17,
     fontWeight: '700',
     marginBottom: Spacing.xs,
-    textAlign: 'center',
   },
   emptySubtitle: {
     fontSize: 13,
@@ -354,7 +297,7 @@ const styles = StyleSheet.create({
   },
   resetButton: {
     paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.xs + 2,
+    paddingVertical: Spacing.xs + 3,
     borderRadius: BorderRadius.sm,
     borderWidth: 1,
   },
