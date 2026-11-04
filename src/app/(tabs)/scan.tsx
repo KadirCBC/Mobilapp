@@ -1,4 +1,10 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Ionicons } from '@expo/vector-icons';
+import { CameraView, useCameraPermissions } from 'expo-camera';
+import { Image } from 'expo-image';
+import * as ImagePicker from 'expo-image-picker';
+import { useRouter } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Animated,
@@ -7,19 +13,13 @@ import {
   Modal,
   PanResponder,
   Platform,
-  ScrollView,
   StatusBar as RNStatusBar,
+  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
-import { useRouter } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
-import { Image } from 'expo-image';
-import { Ionicons } from '@expo/vector-icons';
-import { CameraView, useCameraPermissions } from 'expo-camera';
-import * as ImagePicker from 'expo-image-picker';
 import Svg, { Circle, Line, Path } from 'react-native-svg';
 
 import { BorderRadius, BottomTabInset, Spacing } from '@/constants/theme';
@@ -226,7 +226,7 @@ export default function ScanScreen() {
 
   const vfSize = Math.min(layout.width * 0.70, 260);
   const cx = Math.round(layout.width / 2);
-  const cy = Math.round(layout.height * 0.42);
+  const cy = Math.round(layout.height * 0.44);
   const r = Math.round(vfSize / 2);
   const cornerDist = r + 14;
   const cornerArm = 22;
@@ -686,7 +686,7 @@ export default function ScanScreen() {
         </View>
       </View>
 
-      {/* 4. ÜST KONTROL VE UYARI BARI */}
+      {/* 4. ÜST KONTROL BARI (FLAŞ & GALERİ) */}
       <View style={styles.topBar}>
         {/* Flaş Butonu */}
         <TouchableOpacity
@@ -703,14 +703,6 @@ export default function ScanScreen() {
           />
         </TouchableOpacity>
 
-        {/* Küçük Uyarı Rozeti */}
-        <View style={styles.conditionNoticeContainer}>
-          <Ionicons name="information-circle-outline" size={13} color="#D4AF37" />
-          <Text style={styles.conditionNoticeText}>
-            En doğru sonuçlar Kondisyon ile ilgilidir.
-          </Text>
-        </View>
-
         {/* Galeriden Yükle Butonu */}
         <TouchableOpacity
           activeOpacity={0.75}
@@ -720,8 +712,17 @@ export default function ScanScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* 5. DİNAMİK TALİMAT ROZETİ */}
+      {/* 5. DİNAMİK TALİMAT VE KONDİSYON UYARI BÖLÜMÜ */}
       <View style={styles.instructionContainer} pointerEvents="none">
+        {/* Küçük Kondisyon Bilgilendirme Rozeti */}
+        <View style={styles.conditionNoticeContainer}>
+          <Ionicons name="information-circle-outline" size={13} color="#D4AF37" />
+          <Text style={styles.conditionNoticeText}>
+            En doğru sonuçlar Kondisyon ile ilgilidir.
+          </Text>
+        </View>
+
+        {/* Ana Hizalama Talimat Rozeti */}
         <View style={[styles.instructionPill, capturedObverseUri && styles.instructionPillAlert]}>
           <Ionicons
             name={capturedObverseUri ? 'alert-circle' : 'scan-circle'}
@@ -1466,34 +1467,33 @@ const styles = StyleSheet.create({
     borderColor: '#F59E0B',
   },
   conditionNoticeContainer: {
-    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 5,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    backgroundColor: 'rgba(0, 0, 0, 0.45)',
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    backgroundColor: 'rgba(0, 0, 0, 0.55)',
     borderRadius: BorderRadius.full,
     borderWidth: 1,
     borderColor: 'rgba(212, 175, 55, 0.35)',
-    marginHorizontal: 10,
+    marginBottom: 7,
   },
   conditionNoticeText: {
-    fontSize: 11,
+    fontSize: 10.5,
     fontWeight: '600',
-    color: '#E2E8F0',
+    color: '#CBD5E1',
     textAlign: 'center',
   },
 
   // 2. TALİMAT METNİ
   instructionContainer: {
     position: 'absolute',
-    top: (Platform.OS === 'android' ? ANDROID_TOP_SPACING : 48) + 52,
+    top: (Platform.OS === 'android' ? ANDROID_TOP_SPACING : 48) + 56,
     left: 0,
     right: 0,
     alignItems: 'center',
-    paddingHorizontal: Spacing.lg,
+    paddingHorizontal: Spacing.md,
     zIndex: 20,
   },
   instructionPill: {
