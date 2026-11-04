@@ -1,71 +1,77 @@
 import { Platform } from 'react-native';
 
 /**
- * Müze ve Antik Galeri konseptli koyu tema renk paleti.
- * Birincil odak: #121417 (Koyu Arka Plan), #1E2228 (Kart Yüzeyi), #D4AF37 (Antik Altın Aksan)
+ * Modern & Ferah Müze / Galeri Konseptli Renk Paleti.
+ * Karakteristik: Açık mermer zemin, saf beyaz kart yüzeyleri ve Antik Bronz / Mat Altın aksanları.
  */
 export const Colors = {
-  dark: {
-    // Yüzey ve Arka Plan
-    background: '#121417',
-    backgroundElement: '#1E2228',
-    backgroundSelected: '#2A303A',
-    surface: '#1E2228',
-    surfaceElevated: '#252B34',
+  light: {
+    // Yüzey ve Zemin Renkleri
+    background: '#F8F9FA', // Açık mermer / off-white
+    surface: '#FFFFFF', // Saf beyaz kartlar
+    surfaceSubtle: '#F1F3F5', // Hafif gri kutular / arama çubuğu zeminleri
+    surfaceElevated: '#FFFFFF',
+    backgroundElement: '#FFFFFF',
+    backgroundSelected: '#F1F3F5',
 
-    // Antik Altın Aksanlar (Primary)
-    primary: '#D4AF37',
-    gold: '#D4AF37',
-    goldLight: '#ECD57B',
-    goldDark: '#997E25',
-    accent: '#D4AF37',
+    // Birincil Antik Vurgular
+    primary: '#9E7B3B', // Antik Bronz / Mat Altın vurgusu
+    primaryLight: '#F5EEDB', // Hafif altın tonlu rozet zeminleri
+    gold: '#9E7B3B',
+    goldLight: '#B8924D',
+    goldDark: '#7A5E2A',
+    accent: '#9E7B3B',
 
-    // Metin Renkleri
-    text: '#F5F6F8',
-    textSecondary: '#9EA3AE',
-    textMuted: '#676E7B',
-    textGold: '#D4AF37',
+    // Tipografi Renkleri
+    textPrimary: '#1A1D20', // Antrasit / koyu grafit ana metin
+    text: '#1A1D20',
+    textSecondary: '#6C757D', // Gri alt metinler
+    textMuted: '#ADB5BD',
+    textGold: '#9E7B3B',
 
     // Kenarlık ve Vurgular
-    border: '#2C323D',
-    borderGold: 'rgba(212, 175, 55, 0.35)',
+    border: '#E9ECEF', // İnce zarif kenarlıklar
+    borderGold: 'rgba(158, 123, 59, 0.25)',
 
     // Durum ve İkaz Renkleri
-    success: '#34D399',
-    warning: '#F59E0B',
-    error: '#EF4444',
-    info: '#60A5FA',
+    success: '#2B8A3E',
+    warning: '#D97706',
+    error: '#E03131',
+    info: '#1971C2',
   },
-  light: {
-    // Galeri Müze Koyu Tema Garantisi (Cihaz açık modda olsa bile konsepti korur)
-    background: '#121417',
-    backgroundElement: '#1E2228',
-    backgroundSelected: '#2A303A',
-    surface: '#1E2228',
-    surfaceElevated: '#252B34',
+  dark: {
+    // Müze teması gereği tutarlı açık mermer stilini korur
+    background: '#F8F9FA',
+    surface: '#FFFFFF',
+    surfaceSubtle: '#F1F3F5',
+    surfaceElevated: '#FFFFFF',
+    backgroundElement: '#FFFFFF',
+    backgroundSelected: '#F1F3F5',
 
-    primary: '#D4AF37',
-    gold: '#D4AF37',
-    goldLight: '#ECD57B',
-    goldDark: '#997E25',
-    accent: '#D4AF37',
+    primary: '#9E7B3B',
+    primaryLight: '#F5EEDB',
+    gold: '#9E7B3B',
+    goldLight: '#B8924D',
+    goldDark: '#7A5E2A',
+    accent: '#9E7B3B',
 
-    text: '#F5F6F8',
-    textSecondary: '#9EA3AE',
-    textMuted: '#676E7B',
-    textGold: '#D4AF37',
+    textPrimary: '#1A1D20',
+    text: '#1A1D20',
+    textSecondary: '#6C757D',
+    textMuted: '#ADB5BD',
+    textGold: '#9E7B3B',
 
-    border: '#2C323D',
-    borderGold: 'rgba(212, 175, 55, 0.35)',
+    border: '#E9ECEF',
+    borderGold: 'rgba(158, 123, 59, 0.25)',
 
-    success: '#34D399',
-    warning: '#F59E0B',
-    error: '#EF4444',
-    info: '#60A5FA',
+    success: '#2B8A3E',
+    warning: '#D97706',
+    error: '#E03131',
+    info: '#1971C2',
   },
 } as const;
 
-export type ThemeColor = keyof typeof Colors.dark & keyof typeof Colors.light;
+export type ThemeColor = keyof typeof Colors.light & keyof typeof Colors.dark;
 
 export const Fonts = Platform.select({
   ios: {
@@ -97,7 +103,7 @@ export const Spacing = {
   xl: 32,
   xxl: 48,
 
-  // Geriye dönük uyumluluk için mevcut ölçek
+  // Geriye dönük uyumluluk ölçeği
   half: 2,
   one: 4,
   two: 8,
@@ -108,6 +114,7 @@ export const Spacing = {
 } as const;
 
 export const BorderRadius = {
+  xs: 4,
   sm: 6,
   md: 12,
   lg: 16,
