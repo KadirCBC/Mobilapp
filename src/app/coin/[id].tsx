@@ -18,6 +18,7 @@ import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 
 import { BorderRadius, Colors, MaxContentWidth, Spacing } from '@/constants/theme';
+import { AuctionValueIndex } from '@/components/AuctionValueIndex';
 import { getCoinById, MOCK_COINS } from '@/data/mockData';
 import { useTheme } from '@/hooks/use-theme';
 
@@ -259,23 +260,15 @@ export default function CoinDetailScreen() {
                     transform: [{ rotateY }, { scale }],
                   },
                 ]}>
-                {isComposite ? (
-                  // Çift Yüzlü Görseller İçin Tek Yuvarlak Maskeleme
-                  <Image
-                    source={{ uri: currentImage }}
-                    style={activeFace === 'obverse' ? styles.compositeLeft : styles.compositeRight}
-                    contentFit="cover"
-                    transition={150}
-                  />
-                ) : (
-                  // Bağımsız Avers/Revers URL'leri İçin Standart Kaplama
-                  <Image
-                    source={{ uri: currentImage }}
-                    style={styles.singleCoinImage}
-                    contentFit="cover"
-                    transition={150}
-                  />
-                )}
+                <Image
+                  source={{ uri: currentImage }}
+                  style={styles.singleCoinImage}
+                  contentFit="cover"
+                  contentPosition={
+                    isComposite ? (activeFace === 'obverse' ? 'left' : 'right') : 'center'
+                  }
+                  transition={150}
+                />
               </Animated.View>
             </TouchableOpacity>
 
@@ -341,36 +334,48 @@ export default function CoinDetailScreen() {
             </View>
           </View>
 
-          {/* 3. KOLEKSİYONUMA EKLE BUTONU */}
-          <TouchableOpacity
-            activeOpacity={0.85}
-            onPress={toggleCollection}
-            style={[
-              styles.collectionButton,
-              isCollected
-                ? {
-                    backgroundColor: colors.primary,
-                    borderColor: colors.primary,
-                  }
-                : {
-                    backgroundColor: colors.surface,
-                    borderColor: colors.border,
-                  },
-            ]}>
-            <Ionicons
-              name={isCollected ? 'bookmark' : 'bookmark-outline'}
-              size={19}
-              color={isCollected ? '#FFFFFF' : colors.primary}
-            />
-            <Text
+          {/* 3. KOLEKSİYON VE DİJİTAL PASAPORT AKSİYON BUTONLARI */}
+          <View style={styles.actionButtonsRow}>
+            <TouchableOpacity
+              activeOpacity={0.85}
+              onPress={toggleCollection}
               style={[
-                styles.collectionButtonText,
-                { color: isCollected ? '#FFFFFF' : colors.primary },
+                styles.collectionButton,
+                isCollected
+                  ? {
+                      backgroundColor: colors.primary,
+                      borderColor: colors.primary,
+                    }
+                  : {
+                      backgroundColor: colors.surface,
+                      borderColor: colors.border,
+                    },
               ]}>
-              {isCollected ? 'Koleksiyonunuzda Kayıtlı' : 'Koleksiyonuma Ekle'}
-            </Text>
-            {isCollected && <Ionicons name="checkmark-circle" size={16} color="#FFFFFF" />}
-          </TouchableOpacity>
+              <Ionicons
+                name={isCollected ? 'bookmark' : 'bookmark-outline'}
+                size={18}
+                color={isCollected ? '#FFFFFF' : colors.primary}
+              />
+              <Text
+                style={[
+                  styles.collectionButtonText,
+                  { color: isCollected ? '#FFFFFF' : colors.primary },
+                ]}>
+                {isCollected ? 'Kayıtlı' : 'Koleksiyon'}
+              </Text>
+              {isCollected && <Ionicons name="checkmark-circle" size={15} color="#FFFFFF" />}
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              activeOpacity={0.85}
+              onPress={() => router.push(`/certificate/${coin.id}` as any)}
+              style={styles.passportButton}>
+              <Ionicons name="shield-checkmark" size={18} color="#D4AF37" />
+              <Text style={styles.passportButtonText}>
+                Dijital Pasaport
+              </Text>
+            </TouchableOpacity>
+          </View>
 
           {/* 4. SİKKE BAŞLIĞI VE HÜKÜMDAR */}
           <View style={styles.titleSection}>
@@ -548,6 +553,9 @@ export default function CoinDetailScreen() {
               </Text>
             </View>
           </View>
+
+          {/* 8. MÜZAYEDE SATIŞ İNDEKSİ VE DEĞER GRAFİĞİ BİLEŞENİ */}
+          <AuctionValueIndex coin={coin} />
         </View>
       </ScrollView>
 
@@ -826,16 +834,21 @@ const styles = StyleSheet.create({
     fontSize: 13,
   },
 
-  // 3. KOLEKSİYONUMA EKLE
+  // 3. KOLEKSİYON VE DİJİTAL PASAPORT
+  actionButtonsRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: Spacing.md,
+  },
   collectionButton: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: Spacing.sm,
-    paddingVertical: Spacing.sm + 4,
+    gap: 6,
+    paddingVertical: 12,
     borderRadius: BorderRadius.md,
     borderWidth: 1,
-    marginTop: Spacing.md,
     shadowColor: '#1A1D20',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
@@ -843,9 +856,32 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   collectionButtonText: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '700',
-    letterSpacing: 0.3,
+    letterSpacing: 0.2,
+  },
+  passportButton: {
+    flex: 1.35,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 12,
+    borderRadius: BorderRadius.md,
+    backgroundColor: '#1E232B',
+    borderWidth: 1,
+    borderColor: 'rgba(158, 123, 59, 0.45)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  passportButtonText: {
+    fontSize: 12.5,
+    fontWeight: '800',
+    color: '#D4AF37',
+    letterSpacing: 0.2,
   },
 
   titleSection: {

@@ -140,9 +140,26 @@ export default function CategoriesScreen() {
             <Text style={styles.headerEyebrow}>MEDENİYETLER VE DÖNEMLER</Text>
             <Text style={styles.headerTitle}>Tarihsel Nümismatik Atlası</Text>
           </View>
-          <View style={styles.atlasBadge}>
-            <Ionicons name="earth" size={15} color="#9E7B3B" />
-            <Text style={styles.atlasBadgeText}>{CATEGORIES.length} Çağ</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <TouchableOpacity
+              activeOpacity={0.8}
+              onPress={() => router.push('/dynasties' as any)}
+              style={[styles.mapShortcutBtn, { backgroundColor: '#FBF5E8', borderWidth: 1, borderColor: 'rgba(158, 123, 59, 0.4)' }]}>
+              <Ionicons name="git-network" size={13} color="#9E7B3B" />
+              <Text style={[styles.mapShortcutBtnText, { color: '#9E7B3B' }]}>Soyağacı</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              activeOpacity={0.8}
+              onPress={() => router.push('/map')}
+              style={styles.mapShortcutBtn}>
+              <Ionicons name="map" size={14} color="#FFFFFF" />
+              <Text style={styles.mapShortcutBtnText}>Harita</Text>
+            </TouchableOpacity>
+            <View style={styles.atlasBadge}>
+              <Ionicons name="earth" size={15} color="#9E7B3B" />
+              <Text style={styles.atlasBadgeText}>{CATEGORIES.length} Çağ</Text>
+            </View>
           </View>
         </View>
 
@@ -230,6 +247,25 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#1A1D20', // Antrasit
     letterSpacing: -0.3,
+  },
+  mapShortcutBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#9E7B3B',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: BorderRadius.full,
+    shadowColor: '#9E7B3B',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  mapShortcutBtnText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
   atlasBadge: {
     flexDirection: 'row',

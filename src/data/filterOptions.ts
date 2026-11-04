@@ -213,8 +213,8 @@ export interface FilterState {
   activePreset: string | null;
 }
 
-// Varsayılan Başlangıç Filtre Durumu
-export const DEFAULT_FILTER_STATE: FilterState = {
+// Varsayılan Başlangıç Filtre Durumu Üretici Fonksiyonu (Referans çakışmalarını önler)
+export const createDefaultFilterState = (): FilterState => ({
   search: '',
   metals: [],
   civilizations: [],
@@ -228,4 +228,7 @@ export const DEFAULT_FILTER_STATE: FilterState = {
   maxPrice: null,
   hasImageBackAndFront: false,
   activePreset: null,
-};
+});
+
+// Varsayılan Başlangıç Filtre Durumu
+export const DEFAULT_FILTER_STATE: FilterState = createDefaultFilterState();

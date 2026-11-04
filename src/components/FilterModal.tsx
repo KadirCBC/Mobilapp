@@ -28,6 +28,7 @@ import {
   MINTS_AND_REGIONS,
   SORT_OPTIONS,
   SortOptionItem,
+  createDefaultFilterState,
 } from '@/data/filterOptions';
 import { MOCK_COINS } from '@/data/mockData';
 
@@ -36,6 +37,17 @@ const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 function parseCoinValue(val: string): number {
   const num = parseInt(val.replace(/[^0-9]/g, ''), 10);
   return isNaN(num) ? 0 : num;
+}
+
+/**
+ * Darphane isimlerini (örn. "Sardis" ile "Sardis (Salihli)") esnek eşleştiren yardımcı
+ */
+export function matchMint(m1: string, m2: string): boolean {
+  if (!m1 || !m2) return false;
+  if (m1 === m2) return true;
+  const b1 = m1.split('(')[0].trim().toLowerCase();
+  const b2 = m2.split('(')[0].trim().toLowerCase();
+  return b1 === b2 || b1.startsWith(b2) || b2.startsWith(b1) || b1.includes(b2) || b2.includes(b1);
 }
 
 export interface FilterModalProps {
@@ -214,12 +226,20 @@ export const FilterModal: React.FC<FilterModalProps> = ({
   };
 
   const toggleMint = (mintName: string) => {
-    setDraftFilters((prev) => ({
-      ...prev,
-      mints: prev.mints.includes(mintName)
-        ? prev.mints.filter((m) => m !== mintName)
-        : [...prev.mints, mintName],
-    }));
+    setDraftFilters((prev) => {
+      const isAlreadySelected = prev.mints.some((m) => matchMint(m, mintName));
+      if (isAlreadySelected) {
+        return {
+          ...prev,
+          mints: prev.mints.filter((m) => !matchMint(m, mintName)),
+        };
+      } else {
+        return {
+          ...prev,
+          mints: [...prev.mints, mintName],
+        };
+      }
+    });
   };
 
   const toggleCondition = (condName: string) => {
@@ -264,10 +284,13 @@ export const FilterModal: React.FC<FilterModalProps> = ({
   };
 
   const handleResetFilters = () => {
-    setDraftFilters(DEFAULT_FILTER_STATE);
+    const cleanState = createDefaultFilterState();
+    setDraftFilters(cleanState);
     setMinPriceText('');
     setMaxPriceText('');
     setMintSearchQuery('');
+    // Filtreleri hem taslakta hem de ana ekranda anında sıfırla
+    onApplyFilters(cleanState);
   };
 
   const handleApply = () => {
@@ -595,7 +618,7 @@ export const FilterModal: React.FC<FilterModalProps> = ({
                     {/* Çoklu Seçim Çipleri */}
                     <View style={styles.mintsChipsWrap}>
                       {filteredMints.map((mint: string) => {
-                        const isSelected = draftFilters.mints.includes(mint);
+                        const isSelected = draftFilters.mints.some((m) => matchMint(m, mint));
                         return (
                           <TouchableOpacity
                             key={mint}

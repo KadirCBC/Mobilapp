@@ -23,7 +23,9 @@ import {
 import Svg, { Circle, Line, Path } from 'react-native-svg';
 
 import { BorderRadius, BottomTabInset, Spacing } from '@/constants/theme';
+import { PatinaMineralAnalysis } from '@/components/PatinaMineralAnalysis';
 import { CoinItem, MOCK_COINS, registerScannedCoin } from '@/data/mockData';
+import { identifyCoinFromImage } from '@/utils/coinRecognition';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const VIEWFINDER_SIZE = Math.min(SCREEN_WIDTH * 0.70, 260); // 260px ideal vizör çapı
@@ -318,7 +320,7 @@ export default function ScanScreen() {
   const processImageAndIdentify = (
     obverseUri: string,
     reverseUri?: string,
-    initialArchetypeIdx = 0
+    initialArchetypeIdx?: number
   ) => {
     const finalReverseUri = reverseUri || obverseUri;
     setCapturedPhotoUri(obverseUri);
@@ -328,12 +330,26 @@ export default function ScanScreen() {
     setAnalysisProgress(15);
     setShowResultModal(false);
 
-    const archetype = EXTERNAL_ARCHETYPES[initialArchetypeIdx] || EXTERNAL_ARCHETYPES[0];
-    setSelectedArchetypeIndex(initialArchetypeIdx);
+    // Görseldeki sikkeyi %100 nümismatik arşivle eşleştir
+    const identification = identifyCoinFromImage(obverseUri, finalReverseUri);
+    const matchedCoin =
+      initialArchetypeIdx !== undefined && EXTERNAL_ARCHETYPES[initialArchetypeIdx]
+        ? EXTERNAL_ARCHETYPES[initialArchetypeIdx]
+        : identification.coin;
+    const detectedConfidence = identification.confidence;
+
+    if (initialArchetypeIdx !== undefined) {
+      setSelectedArchetypeIndex(initialArchetypeIdx);
+    } else {
+      const archIdx = EXTERNAL_ARCHETYPES.findIndex(
+        (a) => a.title.toLowerCase() === matchedCoin.title.toLowerCase()
+      );
+      setSelectedArchetypeIndex(archIdx >= 0 ? archIdx : 0);
+    }
 
     const generatedId = `scanned-coin-${Date.now()}`;
     const newCoinRecord: CoinItem = {
-      ...archetype,
+      ...matchedCoin,
       id: generatedId,
       obverseImage: obverseUri,
       reverseImage: finalReverseUri,
@@ -341,7 +357,7 @@ export default function ScanScreen() {
     };
 
     setDetectedCoin(newCoinRecord);
-    setMatchScore(Number((98.6 + Math.random() * 1.2).toFixed(1)));
+    setMatchScore(detectedConfidence);
 
     Animated.spring(modalScaleAnim, {
       toValue: 1,
@@ -916,15 +932,15 @@ export default function ScanScreen() {
 
             <View style={styles.featureGrid}>
               <View style={styles.featureItem}>
-                <Ionicons name="prism-outline" size={15} color="#D4AF37" />
+                <Ionicons name="prism-outline" size={15} color="#9E7B3B" />
                 <Text style={styles.featureText}>Maden Spektrumu</Text>
               </View>
               <View style={styles.featureItem}>
-                <Ionicons name="finger-print-outline" size={15} color="#D4AF37" />
+                <Ionicons name="finger-print-outline" size={15} color="#9E7B3B" />
                 <Text style={styles.featureText}>Rölyef & Lejant</Text>
               </View>
               <View style={styles.featureItem}>
-                <Ionicons name="library-outline" size={15} color="#D4AF37" />
+                <Ionicons name="library-outline" size={15} color="#9E7B3B" />
                 <Text style={styles.featureText}>Darphane Verisi</Text>
               </View>
             </View>
@@ -946,7 +962,7 @@ export default function ScanScreen() {
           <View style={styles.resultCard}>
             <View style={styles.resultHeader}>
               <View style={styles.matchBadge}>
-                <Ionicons name="checkmark-circle" size={16} color="#10B981" />
+                <Ionicons name="checkmark-circle" size={16} color="#15803D" />
                 <Text style={styles.matchBadgeText}>
                   %{matchScore} YAPAY ZEKA DOĞRULAMASI
                 </Text>
@@ -954,7 +970,7 @@ export default function ScanScreen() {
               <TouchableOpacity
                 onPress={() => setShowResultModal(false)}
                 style={styles.resultCloseBtn}>
-                <Ionicons name="close" size={20} color="#94A3B8" />
+                <Ionicons name="close" size={20} color="#475569" />
               </TouchableOpacity>
             </View>
 
@@ -987,18 +1003,18 @@ export default function ScanScreen() {
                   </View>
 
                   <View style={styles.matchArrowCircle}>
-                    <Ionicons name="swap-horizontal" size={18} color="#D4AF37" />
+                    <Ionicons name="swap-horizontal" size={18} color="#9E7B3B" />
                   </View>
 
                   <View style={styles.comparisonCol}>
-                    <View style={[styles.thumbWrapper, { borderColor: '#D4AF37' }]}>
+                    <View style={[styles.thumbWrapper, { borderColor: '#9E7B3B' }]}>
                       <Image
                         source={{ uri: detectedCoin.obverseImage }}
                         style={styles.comparisonImg}
                         contentFit="cover"
                       />
                     </View>
-                    <Text style={[styles.comparisonLabel, { color: '#D4AF37' }]}>
+                    <Text style={[styles.comparisonLabel, { color: '#9E7B3B' }]}>
                       TESPİT EDİLEN ESER
                     </Text>
                   </View>
@@ -1006,7 +1022,7 @@ export default function ScanScreen() {
 
                 {/* Minik Kıyaslama İpucu Rozeti */}
                 <View style={styles.compareHintBadge}>
-                  <Ionicons name="scan" size={12} color="#D4AF37" />
+                  <Ionicons name="scan" size={12} color="#9E7B3B" />
                   <Text style={styles.compareHintText}>
                     Dokunun: Perde Kıyaslama Aracını Aç (Piksel Piksel İncele) ➜
                   </Text>
@@ -1017,7 +1033,7 @@ export default function ScanScreen() {
               <View style={styles.ngcGradingContainer}>
                 <View style={styles.ngcHeaderRow}>
                   <View style={styles.ngcTag}>
-                    <Ionicons name="ribbon" size={12} color="#D4AF37" />
+                    <Ionicons name="ribbon" size={12} color="#9E7B3B" />
                     <Text style={styles.ngcTagText}>NGC / PCGS DÜNYA STANDARDI</Text>
                   </View>
                   <Text style={styles.ngcSubText}>Yapay Zeka Spektrometresi</Text>
@@ -1026,8 +1042,8 @@ export default function ScanScreen() {
                 <View style={styles.metricCardsGrid}>
                   {/* a) Tahmini Kondisyon Notu */}
                   <View style={styles.metricCard}>
-                    <View style={[styles.metricIconBox, { backgroundColor: 'rgba(212, 175, 55, 0.15)' }]}>
-                      <Ionicons name="shield-checkmark" size={15} color="#D4AF37" />
+                    <View style={[styles.metricIconBox, { backgroundColor: 'rgba(158, 123, 59, 0.12)' }]}>
+                      <Ionicons name="shield-checkmark" size={15} color="#9E7B3B" />
                     </View>
                     <View style={{ flex: 1 }}>
                       <Text style={styles.metricCardLabel}>TAHMİNİ KONDİSYON NOTU</Text>
@@ -1037,12 +1053,12 @@ export default function ScanScreen() {
 
                   {/* b) Stilistik Doğruluk */}
                   <View style={styles.metricCard}>
-                    <View style={[styles.metricIconBox, { backgroundColor: 'rgba(16, 185, 129, 0.15)' }]}>
-                      <Ionicons name="checkmark-done" size={15} color="#10B981" />
+                    <View style={[styles.metricIconBox, { backgroundColor: 'rgba(21, 128, 61, 0.12)' }]}>
+                      <Ionicons name="checkmark-done" size={15} color="#15803D" />
                     </View>
                     <View style={{ flex: 1 }}>
                       <Text style={styles.metricCardLabel}>STİLİSTİK DOĞRULUK</Text>
-                      <Text style={[styles.metricCardValue, { color: '#10B981' }]}>
+                      <Text style={[styles.metricCardValue, { color: '#15803D' }]}>
                         %{Math.min(99, Math.round(matchScore))} Darphane Uyumlu
                       </Text>
                     </View>
@@ -1050,18 +1066,26 @@ export default function ScanScreen() {
 
                   {/* c) Tahmini Değer Aralığı */}
                   <View style={styles.metricCard}>
-                    <View style={[styles.metricIconBox, { backgroundColor: 'rgba(245, 158, 11, 0.15)' }]}>
-                      <Ionicons name="pricetag" size={15} color="#F59E0B" />
+                    <View style={[styles.metricIconBox, { backgroundColor: 'rgba(217, 119, 6, 0.12)' }]}>
+                      <Ionicons name="pricetag" size={15} color="#D97706" />
                     </View>
                     <View style={{ flex: 1 }}>
                       <Text style={styles.metricCardLabel}>TAHMİNİ DEĞER ARALIĞI (MÜZAYEDE ÇEKİÇ)</Text>
-                      <Text style={[styles.metricCardValue, { color: '#F59E0B' }]}>
+                      <Text style={[styles.metricCardValue, { color: '#B45309' }]}>
                         {estimatedHammerRange}
                       </Text>
                     </View>
                   </View>
                 </View>
               </View>
+
+              {/* 3. PATİNA & YÜZEY MİNERALİZASYON ANALİZİ MODÜLÜ */}
+              <PatinaMineralAnalysis
+                coin={detectedCoin}
+                material={detectedCoin.material}
+                coinTitle={detectedCoin.title}
+                imageUri={capturedObverseUri || capturedPhotoUri || detectedCoin.obverseImage}
+              />
 
               <View style={styles.detectedInfoBox}>
                 <Text style={styles.detectedCiv}>
@@ -1074,7 +1098,7 @@ export default function ScanScreen() {
 
                 <View style={styles.pillBadgeRow}>
                   <View style={[styles.specPill, styles.specPillHighlight]}>
-                    <Text style={[styles.specPillText, { color: '#D4AF37', fontWeight: '700' }]}>
+                    <Text style={[styles.specPillText, { color: '#9E7B3B', fontWeight: '700' }]}>
                       {detectedCoin.material}
                     </Text>
                   </View>
@@ -1114,7 +1138,7 @@ export default function ScanScreen() {
                         <Ionicons
                           name={arch.material.includes('Altın') ? 'ribbon' : 'ellipse'}
                           size={12}
-                          color={isSelected ? '#FFFFFF' : '#D4AF37'}
+                          color={isSelected ? '#FFFFFF' : '#9E7B3B'}
                         />
                         <Text
                           style={[
@@ -1156,7 +1180,7 @@ export default function ScanScreen() {
             <View style={styles.compareHeader}>
               <View style={{ flex: 1, paddingRight: 8 }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                  <Ionicons name="git-compare-outline" size={18} color="#D4AF37" />
+                  <Ionicons name="git-compare-outline" size={18} color="#9E7B3B" />
                   <Text style={styles.compareTitle}>Nümizmatik Perde Kıyaslama</Text>
                 </View>
                 <Text style={styles.compareSubtitle}>
@@ -1167,7 +1191,7 @@ export default function ScanScreen() {
               <TouchableOpacity
                 onPress={() => setShowCompareModal(false)}
                 style={styles.pickerCloseBtn}>
-                <Ionicons name="close" size={20} color="#FFFFFF" />
+                <Ionicons name="close" size={20} color="#475569" />
               </TouchableOpacity>
             </View>
 
@@ -1310,7 +1334,7 @@ export default function ScanScreen() {
               <TouchableOpacity
                 onPress={() => setShowSamplePicker(false)}
                 style={styles.pickerCloseBtn}>
-                <Ionicons name="close" size={20} color="#94A3B8" />
+                <Ionicons name="close" size={20} color="#475569" />
               </TouchableOpacity>
             </View>
 
@@ -1817,7 +1841,7 @@ const styles = StyleSheet.create({
   // 7. YÜKLENME & ANALİZ MODALI
   modalBackdrop: {
     flex: 1,
-    backgroundColor: 'rgba(10, 13, 18, 0.92)',
+    backgroundColor: 'rgba(15, 23, 42, 0.60)',
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: Spacing.lg,
@@ -1825,17 +1849,17 @@ const styles = StyleSheet.create({
   analysisCard: {
     width: '100%',
     maxWidth: 360,
-    backgroundColor: '#1E232B',
+    backgroundColor: '#FFFFFF',
     borderRadius: BorderRadius.xl,
     padding: Spacing.lg + 4,
     alignItems: 'center',
     borderWidth: 1.5,
-    borderColor: 'rgba(212, 175, 55, 0.4)',
+    borderColor: '#E2E8F0',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.5,
+    shadowOpacity: 0.15,
     shadowRadius: 20,
-    elevation: 16,
+    elevation: 12,
   },
   radarContainer: {
     width: 110,
@@ -1850,7 +1874,7 @@ const styles = StyleSheet.create({
     height: 106,
     borderRadius: 53,
     borderWidth: 2,
-    borderColor: 'rgba(212, 175, 55, 0.35)',
+    borderColor: 'rgba(158, 123, 59, 0.4)',
     borderStyle: 'dashed',
     position: 'absolute',
   },
@@ -1858,11 +1882,11 @@ const styles = StyleSheet.create({
     width: 12,
     height: 12,
     borderRadius: 6,
-    backgroundColor: '#D4AF37',
+    backgroundColor: '#9E7B3B',
     position: 'absolute',
     top: -6,
     left: 47,
-    shadowColor: '#D4AF37',
+    shadowColor: '#9E7B3B',
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.9,
     shadowRadius: 8,
@@ -1872,17 +1896,18 @@ const styles = StyleSheet.create({
     height: 82,
     borderRadius: 41,
     borderWidth: 2,
-    borderColor: '#D4AF37',
+    borderColor: '#9E7B3B',
+    backgroundColor: '#F8F9FA',
   },
   radarFallbackCircle: {
-    backgroundColor: '#161A20',
+    backgroundColor: '#F1F5F9',
     alignItems: 'center',
     justifyContent: 'center',
   },
   analysisTitle: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: '#1A1D20',
     textAlign: 'center',
     marginBottom: Spacing.md,
     minHeight: 22,
@@ -1890,14 +1915,14 @@ const styles = StyleSheet.create({
   progressBarTrack: {
     width: '100%',
     height: 6,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: '#E2E8F0',
     borderRadius: 3,
     overflow: 'hidden',
     marginBottom: Spacing.md,
   },
   progressBarFill: {
     height: '100%',
-    backgroundColor: '#D4AF37',
+    backgroundColor: '#9E7B3B',
     borderRadius: 3,
   },
   featureGrid: {
@@ -1907,7 +1932,7 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.md,
     paddingTop: Spacing.xs,
     borderTopWidth: 0.5,
-    borderTopColor: 'rgba(255, 255, 255, 0.1)',
+    borderTopColor: '#E2E8F0',
   },
   featureItem: {
     alignItems: 'center',
@@ -1915,7 +1940,7 @@ const styles = StyleSheet.create({
   },
   featureText: {
     fontSize: 10,
-    color: '#94A3B8',
+    color: '#475569',
     fontWeight: '600',
   },
   analyzingHint: {
@@ -1927,18 +1952,23 @@ const styles = StyleSheet.create({
   // 8. EŞLEŞME DOĞRULAMA MODALI (RESULT CARD)
   resultModalBackdrop: {
     flex: 1,
-    backgroundColor: 'rgba(10, 13, 18, 0.90)',
+    backgroundColor: 'rgba(15, 23, 42, 0.60)',
     justifyContent: 'flex-end',
   },
   resultCard: {
-    backgroundColor: '#1E232B',
+    backgroundColor: '#FFFFFF',
     borderTopLeftRadius: BorderRadius.xl,
     borderTopRightRadius: BorderRadius.xl,
     padding: Spacing.lg,
     paddingBottom: Spacing.xl + 10,
-    borderTopWidth: 1.5,
-    borderTopColor: 'rgba(212, 175, 55, 0.5)',
+    borderTopWidth: 2,
+    borderTopColor: '#9E7B3B',
     maxHeight: SCREEN_HEIGHT * 0.88,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 10,
   },
   resultHeader: {
     flexDirection: 'row',
@@ -1950,24 +1980,26 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: 'rgba(16, 185, 129, 0.15)',
+    backgroundColor: '#DCFCE7',
     paddingHorizontal: 12,
     paddingVertical: 5,
     borderRadius: BorderRadius.full,
     borderWidth: 1,
-    borderColor: 'rgba(16, 185, 129, 0.35)',
+    borderColor: '#BBF7D0',
   },
   matchBadgeText: {
     fontSize: 11,
     fontWeight: '800',
-    color: '#10B981',
+    color: '#15803D',
     letterSpacing: 0.5,
   },
   resultCloseBtn: {
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: '#F1F5F9',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1982,38 +2014,38 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 16,
     marginBottom: 6,
-    backgroundColor: 'rgba(0, 0, 0, 0.35)',
+    backgroundColor: '#F8F9FA',
     padding: Spacing.md,
     borderRadius: BorderRadius.lg,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderColor: '#E2E8F0',
   },
   compareHintBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    backgroundColor: 'rgba(212, 175, 55, 0.12)',
+    backgroundColor: '#FBF5E8',
     paddingVertical: 5,
     paddingHorizontal: 12,
     borderRadius: BorderRadius.full,
     borderWidth: 1,
-    borderColor: 'rgba(212, 175, 55, 0.35)',
+    borderColor: 'rgba(158, 123, 59, 0.35)',
     alignSelf: 'center',
   },
   compareHintText: {
     fontSize: 10.5,
     fontWeight: '700',
-    color: '#D4AF37',
+    color: '#9E7B3B',
   },
 
   // 2. ÇOK BOYUTLU NÜMİZMATİK AI ANALİZ KARTI (NGC ANCIENTS / PCGS METRİKLERİ)
   ngcGradingContainer: {
-    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    backgroundColor: '#F8F9FA',
     borderRadius: BorderRadius.lg,
     padding: Spacing.md,
     borderWidth: 1,
-    borderColor: 'rgba(212, 175, 55, 0.35)',
+    borderColor: '#E2E8F0',
     marginBottom: Spacing.md,
   },
   ngcHeaderRow: {
@@ -2026,22 +2058,22 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
-    backgroundColor: 'rgba(212, 175, 55, 0.2)',
+    backgroundColor: '#FBF5E8',
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: BorderRadius.xs,
     borderWidth: 0.5,
-    borderColor: 'rgba(212, 175, 55, 0.4)',
+    borderColor: 'rgba(158, 123, 59, 0.35)',
   },
   ngcTagText: {
     fontSize: 9.5,
     fontWeight: '800',
-    color: '#D4AF37',
+    color: '#9E7B3B',
     letterSpacing: 0.6,
   },
   ngcSubText: {
     fontSize: 10,
-    color: '#94A3B8',
+    color: '#64748B',
   },
   metricCardsGrid: {
     gap: 7,
@@ -2049,12 +2081,12 @@ const styles = StyleSheet.create({
   metricCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    backgroundColor: '#FFFFFF',
     borderRadius: BorderRadius.md,
     padding: 8,
     gap: 10,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderColor: '#E2E8F0',
   },
   metricIconBox: {
     width: 30,
@@ -2066,13 +2098,13 @@ const styles = StyleSheet.create({
   metricCardLabel: {
     fontSize: 9,
     fontWeight: '700',
-    color: '#94A3B8',
+    color: '#64748B',
     letterSpacing: 0.5,
   },
   metricCardValue: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: '#1A1D20',
     marginTop: 1,
   },
   comparisonCol: {
@@ -2083,9 +2115,9 @@ const styles = StyleSheet.create({
     height: 86,
     borderRadius: 43,
     borderWidth: 2,
-    borderColor: 'rgba(255, 255, 255, 0.25)',
+    borderColor: '#E2E8F0',
     overflow: 'hidden',
-    backgroundColor: '#0F1216',
+    backgroundColor: '#FFFFFF',
   },
   comparisonImg: {
     width: '100%',
@@ -2100,16 +2132,16 @@ const styles = StyleSheet.create({
     fontSize: 9.5,
     fontWeight: '700',
     letterSpacing: 0.8,
-    color: '#94A3B8',
+    color: '#64748B',
     marginTop: 6,
   },
   matchArrowCircle: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: 'rgba(212, 175, 55, 0.15)',
+    backgroundColor: '#FBF5E8',
     borderWidth: 1,
-    borderColor: 'rgba(212, 175, 55, 0.4)',
+    borderColor: 'rgba(158, 123, 59, 0.35)',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -2121,19 +2153,19 @@ const styles = StyleSheet.create({
   detectedCiv: {
     fontSize: 10.5,
     fontWeight: '800',
-    color: '#D4AF37',
+    color: '#9E7B3B',
     letterSpacing: 0.8,
     marginBottom: 2,
   },
   detectedTitle: {
     fontSize: 17,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: '#1A1D20',
     marginBottom: 4,
   },
   detectedRuler: {
     fontSize: 12,
-    color: '#CBD5E1',
+    color: '#64748B',
     marginBottom: Spacing.sm,
   },
   pillBadgeRow: {
@@ -2142,30 +2174,30 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   specPill: {
-    backgroundColor: 'rgba(255, 255, 255, 0.09)',
+    backgroundColor: '#F1F5F9',
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: BorderRadius.sm,
     borderWidth: 0.5,
-    borderColor: 'rgba(255, 255, 255, 0.15)',
+    borderColor: '#E2E8F0',
   },
   specPillHighlight: {
-    backgroundColor: 'rgba(212, 175, 55, 0.15)',
-    borderColor: 'rgba(212, 175, 55, 0.4)',
+    backgroundColor: '#FBF5E8',
+    borderColor: 'rgba(158, 123, 59, 0.3)',
   },
   specPillText: {
     fontSize: 11,
-    color: '#E2E8F0',
+    color: '#475569',
     fontWeight: '600',
   },
   specPillPrice: {
-    backgroundColor: 'rgba(212, 175, 55, 0.22)',
-    borderColor: '#D4AF37',
+    backgroundColor: '#FEF3C7',
+    borderColor: '#FDE68A',
   },
   specPillPriceText: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#FBBF24',
+    color: '#B45309',
   },
 
   // Arketip Seçici (Tıklayarak Değiştir)
@@ -2174,7 +2206,7 @@ const styles = StyleSheet.create({
   },
   archetypeSelectLabel: {
     fontSize: 11.5,
-    color: '#94A3B8',
+    color: '#64748B',
     marginBottom: 6,
     fontWeight: '600',
   },
@@ -2185,17 +2217,17 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     paddingHorizontal: 11,
     borderRadius: BorderRadius.full,
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    backgroundColor: '#F8F9FA',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.12)',
+    borderColor: '#E2E8F0',
   },
   archetypeChipActive: {
     backgroundColor: '#9E7B3B',
-    borderColor: '#D4AF37',
+    borderColor: '#9E7B3B',
   },
   archetypeChipText: {
     fontSize: 11,
-    color: '#CBD5E1',
+    color: '#475569',
     fontWeight: '600',
   },
   archetypeChipTextActive: {
@@ -2214,9 +2246,9 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.md,
     shadowColor: '#9E7B3B',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4,
+    shadowOpacity: 0.25,
     shadowRadius: 8,
-    elevation: 6,
+    elevation: 4,
   },
   confirmAndOpenText: {
     fontSize: 14,
@@ -2227,17 +2259,22 @@ const styles = StyleSheet.create({
   // 9. KATALOG SEÇİM MODALI
   pickerModalBackdrop: {
     flex: 1,
-    backgroundColor: 'rgba(10, 13, 18, 0.88)',
+    backgroundColor: 'rgba(15, 23, 42, 0.60)',
     justifyContent: 'flex-end',
   },
   pickerCard: {
-    backgroundColor: '#1E232B',
+    backgroundColor: '#FFFFFF',
     borderTopLeftRadius: BorderRadius.xl,
     borderTopRightRadius: BorderRadius.xl,
     padding: Spacing.lg,
     paddingBottom: Spacing.xl + 20,
-    borderTopWidth: 1.5,
-    borderTopColor: 'rgba(212, 175, 55, 0.4)',
+    borderTopWidth: 2,
+    borderTopColor: '#9E7B3B',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 10,
   },
   pickerHeader: {
     flexDirection: 'row',
@@ -2248,18 +2285,20 @@ const styles = StyleSheet.create({
   pickerTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: '#1A1D20',
   },
   pickerSubtitle: {
     fontSize: 12,
-    color: '#94A3B8',
+    color: '#64748B',
     marginTop: 2,
   },
   pickerCloseBtn: {
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: '#F1F5F9',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -2269,46 +2308,46 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 8,
     borderBottomWidth: 0.5,
-    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
+    borderBottomColor: '#E2E8F0',
   },
   pickerCoinImg: {
     width: 44,
     height: 44,
     borderRadius: 22,
     borderWidth: 1,
-    borderColor: 'rgba(212, 175, 55, 0.4)',
+    borderColor: 'rgba(158, 123, 59, 0.35)',
   },
   pickerItemTitle: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: '#1A1D20',
   },
   pickerItemMeta: {
     fontSize: 11,
-    color: '#94A3B8',
+    color: '#64748B',
     marginTop: 2,
   },
   pickerSelectBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: 'rgba(212, 175, 55, 0.15)',
+    backgroundColor: '#FBF5E8',
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: BorderRadius.full,
     borderWidth: 0.5,
-    borderColor: 'rgba(212, 175, 55, 0.35)',
+    borderColor: 'rgba(158, 123, 59, 0.35)',
   },
   pickerSelectBadgeText: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#D4AF37',
+    color: '#9E7B3B',
   },
 
   // 10. DETAY PERDE KIYASLAMA MODALI (COMPARE OVERLAY)
   compareModalBackdrop: {
     flex: 1,
-    backgroundColor: 'rgba(10, 13, 18, 0.95)',
+    backgroundColor: 'rgba(15, 23, 42, 0.65)',
     justifyContent: 'center',
     alignItems: 'center',
     padding: Spacing.md,
@@ -2316,12 +2355,17 @@ const styles = StyleSheet.create({
   compareModalCard: {
     width: '100%',
     maxWidth: 380,
-    backgroundColor: '#1E232B',
+    backgroundColor: '#FFFFFF',
     borderRadius: BorderRadius.xl,
     padding: Spacing.lg,
     borderWidth: 1.5,
-    borderColor: 'rgba(212, 175, 55, 0.4)',
+    borderColor: '#E2E8F0',
     alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.15,
+    shadowRadius: 20,
+    elevation: 10,
   },
   compareHeader: {
     flexDirection: 'row',
@@ -2333,21 +2377,21 @@ const styles = StyleSheet.create({
   compareTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: '#1A1D20',
   },
   compareSubtitle: {
     fontSize: 11,
-    color: '#94A3B8',
+    color: '#64748B',
     marginTop: 2,
   },
   compareSideToggleRow: {
     flexDirection: 'row',
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: '#F1F5F9',
     borderRadius: BorderRadius.full,
     padding: 3,
     marginBottom: Spacing.md,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
+    borderColor: '#E2E8F0',
     width: '100%',
   },
   compareSideBtn: {
@@ -2365,7 +2409,7 @@ const styles = StyleSheet.create({
   compareSideBtnText: {
     fontSize: 11.5,
     fontWeight: '600',
-    color: '#94A3B8',
+    color: '#64748B',
   },
   compareSideBtnTextActive: {
     color: '#FFFFFF',
@@ -2391,7 +2435,7 @@ const styles = StyleSheet.create({
   compareSideLabelText: {
     fontSize: 9.5,
     fontWeight: '700',
-    color: '#38BDF8',
+    color: '#0284C7',
     letterSpacing: 0.5,
   },
   compareViewportWrapper: {
@@ -2399,10 +2443,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginVertical: 4,
     borderWidth: 2,
-    borderColor: 'rgba(212, 175, 55, 0.5)',
+    borderColor: '#E2E8F0',
     borderRadius: 160,
     overflow: 'hidden',
-    backgroundColor: '#0F1216',
+    backgroundColor: '#F8F9FA',
   },
   compareViewport: {
     position: 'relative',
@@ -2418,10 +2462,10 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 0,
     width: 3,
-    backgroundColor: '#D4AF37',
+    backgroundColor: '#9E7B3B',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#D4AF37',
+    shadowColor: '#9E7B3B',
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.8,
     shadowRadius: 6,
@@ -2430,32 +2474,32 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: '#D4AF37',
+    backgroundColor: '#9E7B3B',
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 2,
     borderColor: '#FFFFFF',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.4,
+    shadowOpacity: 0.25,
     shadowRadius: 4,
-    elevation: 6,
+    elevation: 4,
   },
   compareFooterInfo: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
     marginTop: Spacing.md,
-    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+    backgroundColor: '#F8F9FA',
     paddingHorizontal: 10,
     paddingVertical: 7,
     borderRadius: BorderRadius.md,
     borderWidth: 0.5,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
+    borderColor: '#E2E8F0',
   },
   compareFooterText: {
     fontSize: 10.5,
-    color: '#94A3B8',
+    color: '#64748B',
     flex: 1,
     lineHeight: 14,
   },

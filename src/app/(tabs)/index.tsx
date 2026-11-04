@@ -24,6 +24,8 @@ import {
   DEFAULT_FILTER_STATE,
   FilterState,
   METALS,
+  MINTS_AND_REGIONS,
+  createDefaultFilterState,
 } from '@/data/filterOptions';
 import { CoinItem, MOCK_COINS } from '@/data/mockData';
 import { useTheme } from '@/hooks/use-theme';
@@ -70,7 +72,7 @@ function parseCoinValue(val: string): number {
 
 export default function HomeScreen() {
   const router = useRouter();
-  const params = useLocalSearchParams<{ civ?: string }>();
+  const params = useLocalSearchParams<{ civ?: string; mint?: string; ruler?: string }>();
   const theme = useTheme();
   const colors = theme ?? Colors.light;
 
@@ -81,10 +83,46 @@ export default function HomeScreen() {
   const [filters, setFilters] = useState<FilterState>(DEFAULT_FILTER_STATE);
 
   useEffect(() => {
+    if (params.ruler) {
+      setSearchQuery(params.ruler);
+      setSelectedCivilization('Tümü');
+      setSelectedPreset('all');
+      router.setParams({ ruler: undefined });
+    }
+  }, [params.ruler]);
+
+  useEffect(() => {
     if (params.civ) {
       setSelectedCivilization(params.civ);
+      router.setParams({ civ: undefined });
     }
   }, [params.civ]);
+
+  useEffect(() => {
+    if (params.mint) {
+      const targetMint = params.mint;
+      if (targetMint === 'Tümü') {
+        setFilters((prev) => ({ ...prev, mints: [] }));
+      } else {
+        // MINTS_AND_REGIONS içindeki tam isimle eşleştir (örn. 'Sardis' -> 'Sardis (Salihli)')
+        const matched = MINTS_AND_REGIONS.find((m) => {
+          const root = m.split('(')[0].trim().toLowerCase();
+          const targetRoot = targetMint.split('(')[0].trim().toLowerCase();
+          return root === targetRoot || root.startsWith(targetRoot) || targetRoot.startsWith(root);
+        });
+        const resolvedMint = matched || targetMint;
+
+        setFilters(() => ({
+          ...createDefaultFilterState(),
+          mints: [resolvedMint],
+        }));
+        setSelectedCivilization('Tümü');
+        setSelectedPreset('all');
+      }
+      // Parametreyi sıfırla ki filtre temizlendiğinde veya sayfa yenilendiğinde tekrar tetiklenmesin
+      router.setParams({ mint: undefined });
+    }
+  }, [params.mint]);
 
   // Günün / Haftanın Nadir Eseri (Featured Hero)
   const featuredCoin = MOCK_COINS[0];
@@ -121,8 +159,10 @@ export default function HomeScreen() {
   // Hızlı filtre çipine tıklandığında
   const handleQuickFilterPress = (chip: QuickFilterItem) => {
     if (chip.type === 'all') {
-      setFilters(DEFAULT_FILTER_STATE);
+      setFilters(createDefaultFilterState());
       setSelectedCivilization('Tümü');
+      setSelectedPreset('all');
+      router.setParams({ mint: undefined, civ: undefined });
       return;
     }
 
@@ -181,7 +221,8 @@ export default function HomeScreen() {
     setSearchQuery('');
     setSelectedCivilization('Tümü');
     setSelectedPreset('all');
-    setFilters(DEFAULT_FILTER_STATE);
+    setFilters(createDefaultFilterState());
+    router.setParams({ mint: undefined, civ: undefined });
   };
 
   // Çok Kriterli Gelişmiş Süzme (Akıllı Rozetler + Arama + Madenler + Medeniyetler + Çağlar + Sıralama)
@@ -387,25 +428,38 @@ export default function HomeScreen() {
       <View style={styles.header}>
         <View style={styles.brandRow}>
           <View style={styles.brandGroup}>
-            <View
-              style={[
-                styles.brandLogoBox,
-                { backgroundColor: colors.primaryLight, borderColor: colors.primary },
-              ]}>
-              <Ionicons name="diamond" size={17} color={colors.primary} />
-            </View>
-            <View>
-              <Text style={[styles.brandEyebrow, { color: colors.primary }]}>
-                KRALİYET & MÜZAYEDE ARŞİVİ
-              </Text>
-              <Text style={[styles.brandTitle, { color: colors.textPrimary }]}>
-                NÜMİSMATİK KOLEKSİYONU
-              </Text>
-            </View>
+            <Image
+              source={require('../../../assets/images/brand-logo.png')}
+              style={styles.brandLogoImage}
+              contentFit="contain"
+              priority="high"
+            />
           </View>
 
           <View style={styles.headerRightCol}>
             <View style={styles.headerActions}>
+              {/* Hanedanlar & İmparatorlar Soyağacı Butonu */}
+              <TouchableOpacity
+                activeOpacity={0.75}
+                onPress={() => router.push('/dynasties' as any)}
+                style={[
+                  styles.actionBtn,
+                  { backgroundColor: colors.surface, borderColor: colors.border },
+                ]}>
+                <Ionicons name="git-network-outline" size={17} color={colors.primary} />
+              </TouchableOpacity>
+
+              {/* Antik Darphaneler Atlası Harita Butonu */}
+              <TouchableOpacity
+                activeOpacity={0.75}
+                onPress={() => router.push('/map')}
+                style={[
+                  styles.actionBtn,
+                  { backgroundColor: colors.surface, borderColor: colors.border },
+                ]}>
+                <Ionicons name="map-outline" size={17} color={colors.primary} />
+              </TouchableOpacity>
+
               {/* Sözlük Butonu */}
               <TouchableOpacity
                 activeOpacity={0.75}
@@ -662,6 +716,74 @@ export default function HomeScreen() {
               </View>
             </View>
 
+            {/* ANTİK DARPHANELER ATLASI MODÜLÜ (HARİTA BANNERI) */}
+            <TouchableOpacity
+              activeOpacity={0.92}
+              onPress={() => router.push('/map')}
+              style={[
+                styles.atlasCardBanner,
+                { backgroundColor: colors.surface, borderColor: colors.border },
+              ]}>
+              <View style={styles.atlasCardInner}>
+                <View style={[styles.atlasCompassCircle, { backgroundColor: colors.primaryLight }]}>
+                  <Ionicons name="compass" size={24} color={colors.primary} />
+                </View>
+
+                <View style={{ flex: 1, paddingRight: 8 }}>
+                  <View style={styles.atlasTagRow}>
+                    <Ionicons name="map-outline" size={11} color={colors.primary} />
+                    <Text style={[styles.atlasTagText, { color: colors.primary }]}>
+                      İNTERAKTİF COĞRAFYA
+                    </Text>
+                  </View>
+                  <Text style={[styles.atlasCardTitle, { color: colors.textPrimary }]}>
+                    Antik Darphaneler Atlası
+                  </Text>
+                  <Text style={[styles.atlasCardSubtitle, { color: colors.textSecondary }]} numberOfLines={2}>
+                    Sardis, Efes, Roma, Bergama ve İskenderiye para merkezlerini haritada keşfedin.
+                  </Text>
+                </View>
+
+                <View style={[styles.atlasArrowBtn, { backgroundColor: colors.primary }]}>
+                  <Ionicons name="arrow-forward" size={16} color="#FFFFFF" />
+                </View>
+              </View>
+            </TouchableOpacity>
+
+            {/* HANEDANLAR & İMPARATORLAR SOYAĞACI BANNERI */}
+            <TouchableOpacity
+              activeOpacity={0.92}
+              onPress={() => router.push('/dynasties' as any)}
+              style={[
+                styles.atlasCardBanner,
+                { backgroundColor: colors.surface, borderColor: colors.border, marginTop: Spacing.sm },
+              ]}>
+              <View style={styles.atlasCardInner}>
+                <View style={[styles.atlasCompassCircle, { backgroundColor: '#FBF5E8' }]}>
+                  <Ionicons name="git-network" size={23} color={colors.primary} />
+                </View>
+
+                <View style={{ flex: 1, paddingRight: 8 }}>
+                  <View style={styles.atlasTagRow}>
+                    <Ionicons name="ribbon-outline" size={11} color={colors.primary} />
+                    <Text style={[styles.atlasTagText, { color: colors.primary }]}>
+                      HANEDAN SOYAĞACI
+                    </Text>
+                  </View>
+                  <Text style={[styles.atlasCardTitle, { color: colors.textPrimary }]}>
+                    İmparatorlar & Soyağacı
+                  </Text>
+                  <Text style={[styles.atlasCardSubtitle, { color: colors.textSecondary }]} numberOfLines={2}>
+                    Roma, Bizans, Antik Yunan ve Osmanlı hükümdarlarının taht silsilesini ve meşhur sikkelerini keşfedin.
+                  </Text>
+                </View>
+
+                <View style={[styles.atlasArrowBtn, { backgroundColor: colors.primary }]}>
+                  <Ionicons name="arrow-forward" size={16} color="#FFFFFF" />
+                </View>
+              </View>
+            </TouchableOpacity>
+
             {/* 4. DÖNEMLER VE MEDENİYETLER (HORIZONTAL STORY SLIDER) */}
             <View style={styles.sectionHeaderRow}>
               <View style={styles.sectionTitleBlock}>
@@ -803,6 +925,31 @@ export default function HomeScreen() {
                 </Text>
               </View>
             </View>
+
+            {/* AKTİF DARPHANE FİLTRESİ ROZETİ */}
+            {filters.mints && filters.mints.length > 0 && (
+              <View style={styles.activeMintFilterBar}>
+                <View
+                  style={[
+                    styles.activeMintBadge,
+                    { backgroundColor: colors.primaryLight, borderColor: colors.primary },
+                  ]}>
+                  <Ionicons name="business" size={13} color={colors.primary} />
+                  <Text style={[styles.activeMintText, { color: colors.primary }]}>
+                    Darphane Filtresi: <Text style={{ fontWeight: '800' }}>{filters.mints.join(', ')}</Text>
+                  </Text>
+                  <TouchableOpacity
+                    onPress={() => {
+                      setFilters((prev) => ({ ...prev, mints: [] }));
+                      router.setParams({ mint: undefined });
+                    }}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    style={[styles.activeMintCloseBtn, { backgroundColor: colors.primary }]}>
+                    <Ionicons name="close" size={12} color="#FFFFFF" />
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
           </>
         }
         ListEmptyComponent={
@@ -867,23 +1014,9 @@ const styles = StyleSheet.create({
     gap: 10,
     flex: 1,
   },
-  brandLogoBox: {
-    width: 38,
-    height: 38,
-    borderRadius: BorderRadius.md,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  brandEyebrow: {
-    fontSize: 9,
-    fontWeight: '800',
-    letterSpacing: 1.2,
-  },
-  brandTitle: {
-    fontSize: 16,
-    fontWeight: '800',
-    letterSpacing: 0.5,
+  brandLogoImage: {
+    width: 175,
+    height: 42,
   },
   headerActions: {
     flexDirection: 'row',
@@ -1170,6 +1303,92 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.04,
     shadowRadius: 4,
     elevation: 1,
+  },
+  // Antik Darphaneler Atlası Bannerı
+  atlasCardBanner: {
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1.5,
+    marginVertical: Spacing.xs + 2,
+    padding: Spacing.sm + 4,
+    shadowColor: '#9E7B3B',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.1,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  atlasCardInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  atlasCompassCircle: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(158, 123, 59, 0.3)',
+  },
+  atlasTagRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginBottom: 2,
+  },
+  atlasTagText: {
+    fontSize: 9.5,
+    fontWeight: '800',
+    letterSpacing: 0.8,
+  },
+  atlasCardTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+    letterSpacing: -0.2,
+  },
+  atlasCardSubtitle: {
+    fontSize: 11,
+    lineHeight: 15,
+    marginTop: 2,
+  },
+  atlasArrowBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  // Aktif Darphane Filtresi Rozeti
+  activeMintFilterBar: {
+    marginBottom: Spacing.sm,
+    marginTop: 2,
+  },
+  activeMintBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: BorderRadius.full,
+    borderWidth: 1,
+  },
+  activeMintText: {
+    fontSize: 11.5,
+    fontWeight: '600',
+  },
+  activeMintCloseBtn: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 4,
   },
   statBox: {
     alignItems: 'center',
