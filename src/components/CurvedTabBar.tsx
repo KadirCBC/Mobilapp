@@ -287,7 +287,8 @@ export function CurvedTabBar({
                 } else if (navigation?.navigate) {
                   navigation.navigate(route.name);
                 } else {
-                  router.push(`/(tabs)/${route.name}` as any);
+                  const targetPath = route.name === 'index' ? '/' : `/${route.name}`;
+                  router.push(targetPath as any);
                 }
               }
             };
