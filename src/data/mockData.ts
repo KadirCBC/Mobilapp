@@ -14,6 +14,18 @@ export interface CoinItem {
   rarity: string;
   estimatedValue: string;
   description: string;
+  isScanned?: boolean;
+}
+
+// Canlı taranan veya harici galeriden yüklenen tüm özel sikkelerin kayıt defteri
+export const DYNAMIC_SCANNED_COINS: Record<string, CoinItem> = {};
+
+export function registerScannedCoin(coin: CoinItem): void {
+  DYNAMIC_SCANNED_COINS[coin.id] = coin;
+}
+
+export function getCoinById(id: string): CoinItem | undefined {
+  return DYNAMIC_SCANNED_COINS[id] || MOCK_COINS.find((item) => item.id === id);
 }
 
 export const MOCK_COINS: CoinItem[] = [

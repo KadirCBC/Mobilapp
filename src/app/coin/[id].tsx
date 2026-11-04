@@ -18,7 +18,7 @@ import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 
 import { BorderRadius, Colors, MaxContentWidth, Spacing } from '@/constants/theme';
-import { MOCK_COINS } from '@/data/mockData';
+import { getCoinById, MOCK_COINS } from '@/data/mockData';
 import { useTheme } from '@/hooks/use-theme';
 
 const ANDROID_TOP_SPACING = (RNStatusBar.currentHeight ?? 24) + 6;
@@ -47,8 +47,8 @@ export default function CoinDetailScreen() {
   const flipAnim = useRef(new Animated.Value(0)).current;
   const isFlipping = useRef(false);
 
-  // Sikkeyi id'ye göre bul
-  const coin = MOCK_COINS.find((item) => item.id === id);
+  // Sikkeyi id'ye göre bul (Dinamik taranan veya arşivdeki sikke)
+  const coin = id ? getCoinById(id) : undefined;
 
   const handleShare = async () => {
     if (!coin) return;
@@ -131,8 +131,8 @@ export default function CoinDetailScreen() {
     outputRange: [1, 1.08, 1.08, 1],
   });
 
-  // Tek karede çift yüz kompozit görseli kontrolü
-  const isComposite = coin.obverseImage === coin.reverseImage;
+  // Tek karede çift yüz kompozit görseli kontrolü (Harici taranan tekil fotoğraflar için tam kaplama)
+  const isComposite = coin.obverseImage === coin.reverseImage && !(coin as any).isScanned;
   const currentImage = activeFace === 'obverse' ? coin.obverseImage : coin.reverseImage;
 
   return (
