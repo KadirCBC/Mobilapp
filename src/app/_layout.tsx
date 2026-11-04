@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import * as SplashScreen from 'expo-splash-screen';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 export default function RootLayout() {
   useEffect(() => {
@@ -10,7 +11,7 @@ export default function RootLayout() {
   }, []);
 
   return (
-    <>
+    <SafeAreaProvider>
       <StatusBar style="dark" />
       <Stack
         screenOptions={{
@@ -20,6 +21,6 @@ export default function RootLayout() {
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="coin/[id]" options={{ headerShown: false }} />
       </Stack>
-    </>
+    </SafeAreaProvider>
   );
 }

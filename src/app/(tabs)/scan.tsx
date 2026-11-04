@@ -2,8 +2,9 @@ import React, { useEffect, useRef, useState } from 'react';
 import {
   Animated,
   Dimensions,
+  Easing,
+  Modal,
   Platform,
-  ScrollView,
   StatusBar as RNStatusBar,
   StyleSheet,
   Text,
@@ -15,702 +16,816 @@ import { StatusBar } from 'expo-status-bar';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 
-import { BorderRadius, BottomTabInset, Colors, MaxContentWidth, Spacing } from '@/constants/theme';
+import { BorderRadius, BottomTabInset, Colors, Spacing } from '@/constants/theme';
 import { CoinItem, MOCK_COINS } from '@/data/mockData';
 import { useTheme } from '@/hooks/use-theme';
 
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+const VIEWFINDER_SIZE = Math.min(SCREEN_WIDTH * 0.68, 260); // 260px ideal vizör çapı
 const ANDROID_TOP_SPACING = (RNStatusBar.currentHeight ?? 24) + 8;
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const TARGET_SIZE = Math.min(SCREEN_WIDTH * 0.4, 150);
 
 export default function ScanScreen() {
   const router = useRouter();
   const theme = useTheme();
   const colors = theme ?? Colors.light;
 
-  // Analiz durumları: 'idle' | 'scanning' | 'matched'
-  const [scanState, setScanState] = useState<'idle' | 'scanning' | 'matched'>('idle');
-  const [activeStep, setActiveStep] = useState<'obverse' | 'reverse'>('obverse');
-  const [recognizedCoin, setRecognizedCoin] = useState<CoinItem>(MOCK_COINS[0]);
-  const [matchPercentage, setMatchPercentage] = useState(98.6);
+  // Durumlar
+  const [selectedSide, setSelectedSide] = useState<'obverse' | 'reverse'>('obverse');
+  const [flashEnabled, setFlashEnabled] = useState(false);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [analysisStep, setAnalysisStep] = useState<string>('Görsel Analiz Ediliyor...');
+  const [analysisProgress, setAnalysisProgress] = useState(0);
+  const [activeSampleCoin, setActiveSampleCoin] = useState<CoinItem>(MOCK_COINS[0]);
 
-  // Lazer tarama çizgisi animasyonu
-  const scanLineAnim = useRef(new Animated.Value(0)).current;
+  // Animasyon Değerleri
   const pulseAnim = useRef(new Animated.Value(1)).current;
+  const laserAnim = useRef(new Animated.Value(0)).current;
+  const rotateAnim = useRef(new Animated.Value(0)).current;
+  const modalScaleAnim = useRef(new Animated.Value(0.9)).current;
+  const shutterPressAnim = useRef(new Animated.Value(1)).current;
 
+  // Sürekli Vizör Nabız ve Lazer Efekti
   useEffect(() => {
-    // Dairesel vizörün sürekli hafif nabız efekti
-    Animated.loop(
+    // 1. Vizör kesikli halka nabız animasyonu
+    const pulseLoop = Animated.loop(
       Animated.sequence([
         Animated.timing(pulseAnim, {
           toValue: 1.03,
-          duration: 1200,
+          duration: 1300,
+          easing: Easing.inOut(Easing.ease),
           useNativeDriver: true,
         }),
         Animated.timing(pulseAnim, {
           toValue: 1,
-          duration: 1200,
+          duration: 1300,
+          easing: Easing.inOut(Easing.ease),
           useNativeDriver: true,
         }),
       ])
-    ).start();
-  }, []);
+    );
+    pulseLoop.start();
 
-  // Tarama simülasyonunu başlat
-  const startScanSimulation = (sampleCoin?: CoinItem) => {
-    const target = sampleCoin ?? MOCK_COINS[Math.floor(Math.random() * Math.min(MOCK_COINS.length, 6))];
-    setRecognizedCoin(target);
-    setScanState('scanning');
-
-    // Lazer dikey tarama animasyonu
-    scanLineAnim.setValue(0);
-    Animated.loop(
+    // 2. Lazer tarama çizgisi animasyonu
+    const laserLoop = Animated.loop(
       Animated.sequence([
-        Animated.timing(scanLineAnim, {
+        Animated.timing(laserAnim, {
           toValue: 1,
-          duration: 1100,
+          duration: 1600,
+          easing: Easing.inOut(Easing.quad),
           useNativeDriver: true,
         }),
-        Animated.timing(scanLineAnim, {
+        Animated.timing(laserAnim, {
           toValue: 0,
-          duration: 1100,
+          duration: 1600,
+          easing: Easing.inOut(Easing.quad),
           useNativeDriver: true,
         }),
-      ]),
-      { iterations: 2 }
-    ).start();
+      ])
+    );
+    laserLoop.start();
 
-    // 2.4 saniye sonra yapay zeka eşleşmesini göster
-    setTimeout(() => {
-      setMatchPercentage(Number((97.5 + Math.random() * 2.2).toFixed(1)));
-      setScanState('matched');
-    }, 2400);
-  };
+    // 3. Yükleme döngüsü için yavaşça dönen çember
+    const rotateLoop = Animated.loop(
+      Animated.timing(rotateAnim, {
+        toValue: 1,
+        duration: 3500,
+        easing: Easing.linear,
+        useNativeDriver: true,
+      })
+    );
+    rotateLoop.start();
 
-  const handleReset = () => {
-    setScanState('idle');
-    setActiveStep('obverse');
-  };
+    return () => {
+      pulseLoop.stop();
+      laserLoop.stop();
+      rotateLoop.stop();
+    };
+  }, [laserAnim, pulseAnim, rotateAnim]);
 
-  const scanLineTranslateY = scanLineAnim.interpolate({
+  // Lazerin vizör içinde yukarıdan aşağıya hareketi
+  const laserTranslateY = laserAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: [-TARGET_SIZE / 2, TARGET_SIZE / 2],
+    outputRange: [-VIEWFINDER_SIZE / 2 + 10, VIEWFINDER_SIZE / 2 - 10],
   });
 
-  return (
-    <View style={[styles.screen, { backgroundColor: colors.background }]}>
-      <StatusBar style="dark" />
+  const rotateInterpolate = rotateAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0deg', '360deg'],
+  });
 
-      {/* 1. ÜST BAŞLIK */}
-      <View
-        style={[
-          styles.header,
-          { backgroundColor: colors.surface, borderBottomColor: colors.border },
-        ]}>
-        <View style={styles.headerTitleRow}>
-          <View>
-            <Text style={[styles.eyebrow, { color: colors.primary }]}>
-              OPTİK ARKEOLOJİ & YAPAY ZEKA
-            </Text>
-            <Text style={[styles.title, { color: colors.textPrimary }]}>
-              Sikke Tanıma & Tarama
-            </Text>
+  // Deklanşöre Basıldığında Çalışan Analiz Simülasyonu
+  const handleShutterPress = (customCoin?: CoinItem) => {
+    // Rastgele veya belirlenmiş bir sikke seç
+    const targetCoin = customCoin ?? MOCK_COINS[Math.floor(Math.random() * Math.min(MOCK_COINS.length, 8))];
+    setActiveSampleCoin(targetCoin);
+    setIsAnalyzing(true);
+    setAnalysisProgress(12);
+
+    // Buton basılma efekti
+    Animated.sequence([
+      Animated.timing(shutterPressAnim, {
+        toValue: 0.88,
+        duration: 100,
+        useNativeDriver: true,
+      }),
+      Animated.spring(shutterPressAnim, {
+        toValue: 1,
+        tension: 80,
+        friction: 6,
+        useNativeDriver: true,
+      }),
+    ]).start();
+
+    // Modal belirme animasyonu
+    Animated.spring(modalScaleAnim, {
+      toValue: 1,
+      tension: 65,
+      friction: 8,
+      useNativeDriver: true,
+    }).start();
+
+    // Adım 1: Görsel Analiz (0ms - 800ms)
+    setAnalysisStep('Görsel Analiz Ediliyor...');
+    const t1 = setTimeout(() => {
+      setAnalysisProgress(54);
+      setAnalysisStep('Nümismatik Arşivde Eşleştiriliyor...');
+    }, 850);
+
+    // Adım 2: Darphane & Lejant Eşleşmesi (850ms - 1700ms)
+    const t2 = setTimeout(() => {
+      setAnalysisProgress(92);
+      setAnalysisStep('Eser Doğrulandı: %99.4 Eşleşme');
+    }, 1750);
+
+    // Adım 3: Detay Sayfasına Geçiş (2400ms)
+    const t3 = setTimeout(() => {
+      setIsAnalyzing(false);
+      modalScaleAnim.setValue(0.9);
+      router.push(`/coin/${targetCoin.id}` as any);
+    }, 2450);
+
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+      clearTimeout(t3);
+    };
+  };
+
+  // Galeriden Yükleme Aksiyonu
+  const handlePickFromGallery = () => {
+    // Gerçekçi kütüphane simülasyonu: 2. veya 3. sikkeyi seçip analizi başlatır
+    const sample = MOCK_COINS[1] || MOCK_COINS[0];
+    handleShutterPress(sample);
+  };
+
+  return (
+    <View style={styles.container}>
+      <StatusBar style="light" />
+
+      {/* 1. ÜST KONTROL VE BAŞLIK BARI */}
+      <View style={styles.topBar}>
+        {/* Sol: Flaş Butonu */}
+        <TouchableOpacity
+          activeOpacity={0.75}
+          onPress={() => setFlashEnabled((prev) => !prev)}
+          style={[
+            styles.iconCircleBtn,
+            flashEnabled && styles.iconCircleBtnActive,
+          ]}>
+          <Ionicons
+            name={flashEnabled ? 'flash' : 'flash-outline'}
+            size={20}
+            color={flashEnabled ? '#F59E0B' : '#FFFFFF'}
+          />
+        </TouchableOpacity>
+
+        {/* Merkez: Başlık & Durum */}
+        <View style={styles.topCenterTitle}>
+          <View style={styles.liveBadgeRow}>
+            <View style={styles.liveBlinkingDot} />
+            <Text style={styles.liveBadgeText}>OPTİK TARAYICI</Text>
           </View>
-          <View
+          <Text style={styles.topMainTitle}>Yapay Zeka Sikke Tanıma</Text>
+        </View>
+
+        {/* Sağ: Galeriden Yükle Butonu */}
+        <TouchableOpacity
+          activeOpacity={0.75}
+          onPress={handlePickFromGallery}
+          style={styles.iconCircleBtn}>
+          <Ionicons name="images-outline" size={20} color="#FFFFFF" />
+        </TouchableOpacity>
+      </View>
+
+      {/* 2. TALİMAT METNİ ALANI */}
+      <View style={styles.instructionContainer}>
+        <View style={styles.instructionPill}>
+          <Ionicons name="scan-circle" size={17} color="#D4AF37" />
+          <Text style={styles.instructionTitle}>
+            {selectedSide === 'obverse'
+              ? 'Sikkenin Ön Yüzünü Çerçevenin İçine Hizalayın'
+              : 'Sikkenin Arka Yüzünü Çerçevenin İçine Hizalayın'}
+          </Text>
+        </View>
+        <Text style={styles.instructionSubtext}>
+          Doğal veya homojen ışık altında sikkeyi dairesel vizöre oturtun
+        </Text>
+      </View>
+
+      {/* 3. MERKEZİ DAİRESEL SİKKE HİZALAMA VİZÖRÜ */}
+      <View style={styles.viewfinderSection}>
+        {/* Köşe L Kılavuzları (Reticle Brackets) */}
+        <View style={[styles.cornerGuide, styles.cornerTL]} />
+        <View style={[styles.cornerGuide, styles.cornerTR]} />
+        <View style={[styles.cornerGuide, styles.cornerBL]} />
+        <View style={[styles.cornerGuide, styles.cornerBR]} />
+
+        {/* Kesikli Dairesel Altın Halka (Animasyonlu Nabız) */}
+        <Animated.View
+          style={[
+            styles.goldDashedCircle,
+            { transform: [{ scale: pulseAnim }] },
+          ]}>
+          {/* Temsili sikke silueti / kamera vizör görüntüsü */}
+          <Image
+            source={{
+              uri:
+                selectedSide === 'obverse'
+                  ? activeSampleCoin.obverseImage
+                  : activeSampleCoin.reverseImage,
+            }}
+            style={styles.viewfinderCoinImage}
+            contentFit="cover"
+            transition={300}
+          />
+
+          {/* Dairesel Karartma ve Derinlik Katmanı */}
+          <View style={styles.viewfinderOverlay} />
+
+          {/* Merkez Artı (+) Nişangahı */}
+          <View style={styles.centerCrosshair}>
+            <View style={styles.crosshairH} />
+            <View style={styles.crosshairV} />
+          </View>
+
+          {/* Lazer Tarama Çizgisi */}
+          <Animated.View
             style={[
-              styles.aiBadge,
-              { backgroundColor: colors.primaryLight, borderColor: 'rgba(158, 123, 59, 0.3)' },
-            ]}>
-            <Ionicons name="sparkles" size={13} color={colors.primary} />
-            <Text style={[styles.aiBadgeText, { color: colors.primary }]}>AI v4.2</Text>
-          </View>
+              styles.laserLine,
+              { transform: [{ translateY: laserTranslateY }] },
+            ]}
+          />
+        </Animated.View>
+
+        {/* Hizalama Derece/Açı Kılavuzları */}
+        <View style={styles.degreeIndicator}>
+          <Text style={styles.degreeText}>
+            360° OPTİK KILAVUZ • {activeSampleCoin.material.toUpperCase()}
+          </Text>
         </View>
       </View>
 
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={[
-          styles.scrollContent,
-          { paddingBottom: BottomTabInset + Spacing.xxl },
-        ]}>
-        {/* 2. VİZÖR VE KAMERA ALANI */}
-        <View
-          style={[
-            styles.viewfinderCard,
-            { backgroundColor: '#1A1D20', borderColor: colors.border },
-          ]}>
-          {/* Vizör Üst Başlığı */}
-          <View style={styles.viewfinderTopRow}>
-            <View style={styles.liveIndicator}>
-              <View style={styles.liveDot} />
-              <Text style={styles.liveText}>KAMERA VİZÖRÜ (CANLI)</Text>
-            </View>
-            <Text style={styles.guideStepText}>
-              {activeStep === 'obverse' ? '1. Adım: Ön Yüz' : '2. Adım: Arka Yüz'}
+      {/* 4. ALT KONTROLLER: ÖN YÜZ / ARKA YÜZ GEÇİŞİ & DEKLANŞÖR */}
+      <View style={styles.bottomControls}>
+        {/* Ön Yüz / Arka Yüz Segmented Switch Butonları */}
+        <View style={styles.sideToggleContainer}>
+          <TouchableOpacity
+            activeOpacity={0.8}
+            onPress={() => setSelectedSide('obverse')}
+            style={[
+              styles.sideToggleBtn,
+              selectedSide === 'obverse' && styles.sideToggleBtnActive,
+            ]}>
+            <Ionicons
+              name={selectedSide === 'obverse' ? 'ellipse' : 'ellipse-outline'}
+              size={13}
+              color={selectedSide === 'obverse' ? '#FFFFFF' : '#94A3B8'}
+            />
+            <Text
+              style={[
+                styles.sideToggleText,
+                selectedSide === 'obverse' && styles.sideToggleTextActive,
+              ]}>
+              Ön Yüz (Avers)
             </Text>
-          </View>
+          </TouchableOpacity>
 
-          {/* İKİ DAİRESEL HİZALAMA ÇEMBERİ (AVERS & REVERS) */}
-          <View style={styles.reticleContainer}>
-            {/* Ön Yüz Çerçevesi */}
-            <View style={styles.targetWrapper}>
-              <Animated.View
-                style={[
-                  styles.circleTarget,
-                  activeStep === 'obverse'
-                    ? { borderColor: colors.primary, transform: [{ scale: pulseAnim }] }
-                    : { borderColor: 'rgba(255, 255, 255, 0.3)' },
-                ]}>
-                <Image
-                  source={{ uri: recognizedCoin.obverseImage }}
-                  style={[
-                    styles.targetCoinImg,
-                    scanState === 'idle' && { opacity: 0.25 },
-                  ]}
-                  contentFit="cover"
-                />
-                {/* Lazer Tarama Çizgisi */}
-                {scanState === 'scanning' && activeStep === 'obverse' && (
-                  <Animated.View
-                    style={[
-                      styles.laserLine,
-                      { transform: [{ translateY: scanLineTranslateY }] },
-                    ]}
-                  />
-                )}
-                {/* Köşe Nişangahları */}
-                <View style={[styles.corner, styles.cornerTL]} />
-                <View style={[styles.corner, styles.cornerTR]} />
-                <View style={[styles.corner, styles.cornerBL]} />
-                <View style={[styles.corner, styles.cornerBR]} />
-              </Animated.View>
-              <Text style={styles.targetLabel}>ÖN YÜZ (AVERS)</Text>
-            </View>
-
-            {/* Arka Yüz Çerçevesi */}
-            <View style={styles.targetWrapper}>
-              <Animated.View
-                style={[
-                  styles.circleTarget,
-                  activeStep === 'reverse'
-                    ? { borderColor: colors.primary, transform: [{ scale: pulseAnim }] }
-                    : { borderColor: 'rgba(255, 255, 255, 0.3)' },
-                ]}>
-                <Image
-                  source={{ uri: recognizedCoin.reverseImage }}
-                  style={[
-                    styles.targetCoinImg,
-                    scanState === 'idle' && { opacity: 0.25 },
-                  ]}
-                  contentFit="cover"
-                />
-                {/* Lazer Tarama Çizgisi */}
-                {scanState === 'scanning' && activeStep === 'reverse' && (
-                  <Animated.View
-                    style={[
-                      styles.laserLine,
-                      { transform: [{ translateY: scanLineTranslateY }] },
-                    ]}
-                  />
-                )}
-                <View style={[styles.corner, styles.cornerTL]} />
-                <View style={[styles.corner, styles.cornerTR]} />
-                <View style={[styles.corner, styles.cornerBL]} />
-                <View style={[styles.corner, styles.cornerBR]} />
-              </Animated.View>
-              <Text style={styles.targetLabel}>ARKA YÜZ (REVERS)</Text>
-            </View>
-          </View>
-
-          {/* Tarama Kılavuz Açıklaması */}
-          <Text style={styles.viewfinderInstructions}>
-            {scanState === 'scanning'
-              ? 'Yapay zeka rölyef, maden spektrometresi ve lejant analizi yapıyor...'
-              : 'Sikkenin ön ve arka yüzünü yukarıdaki dairesel kılavuz halkalarına hizalayın.'}
-          </Text>
-
-          {/* Deklanşör & Tarama Butonu */}
-          {scanState !== 'matched' && (
-            <View style={styles.shutterRow}>
-              <TouchableOpacity
-                activeOpacity={0.85}
-                onPress={() => startScanSimulation()}
-                style={[
-                  styles.shutterBtn,
-                  { backgroundColor: colors.primary },
-                  scanState === 'scanning' && { opacity: 0.7 },
-                ]}>
-                <Ionicons
-                  name={scanState === 'scanning' ? 'sync' : 'scan'}
-                  size={22}
-                  color="#FFFFFF"
-                />
-                <Text style={styles.shutterBtnText}>
-                  {scanState === 'scanning' ? 'Analiz Ediliyor...' : 'Sikkeyi Tara & Tanı'}
-                </Text>
-              </TouchableOpacity>
-            </View>
-          )}
+          <TouchableOpacity
+            activeOpacity={0.8}
+            onPress={() => setSelectedSide('reverse')}
+            style={[
+              styles.sideToggleBtn,
+              selectedSide === 'reverse' && styles.sideToggleBtnActive,
+            ]}>
+            <Ionicons
+              name={selectedSide === 'reverse' ? 'ellipse' : 'ellipse-outline'}
+              size={13}
+              color={selectedSide === 'reverse' ? '#FFFFFF' : '#94A3B8'}
+            />
+            <Text
+              style={[
+                styles.sideToggleText,
+                selectedSide === 'reverse' && styles.sideToggleTextActive,
+              ]}>
+              Arka Yüz (Revers)
+            </Text>
+          </TouchableOpacity>
         </View>
 
-        {/* 3. YAPAY ZEKA EŞLEŞME SONUCU (MATCHED CARD) */}
-        {scanState === 'matched' && (
-          <View
+        {/* Ana Deklanşör Butonu */}
+        <View style={styles.shutterWrapper}>
+          <Animated.View style={{ transform: [{ scale: shutterPressAnim }] }}>
+            <TouchableOpacity
+              activeOpacity={0.9}
+              onPress={() => handleShutterPress()}
+              style={styles.shutterOuterRing}>
+              <View style={styles.shutterInnerCircle}>
+                <Ionicons name="scan" size={28} color="#1A1D20" />
+              </View>
+            </TouchableOpacity>
+          </Animated.View>
+        </View>
+
+        {/* Hızlı Galeri Kısayol İpucu */}
+        <TouchableOpacity
+          activeOpacity={0.7}
+          onPress={handlePickFromGallery}
+          style={styles.galleryShortcutBtn}>
+          <Ionicons name="cloud-upload-outline" size={15} color="#94A3B8" />
+          <Text style={styles.galleryShortcutText}>Galeriden Fotoğraf Seç</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* 5. GÖRSEL ANALİZ & NÜMİSMATİK EŞLEŞTİRME YÜKLENME MODALI */}
+      <Modal
+        visible={isAnalyzing}
+        transparent
+        animationType="fade"
+        statusBarTranslucent>
+        <View style={styles.modalBackdrop}>
+          <Animated.View
             style={[
-              styles.matchCard,
-              { backgroundColor: colors.surface, borderColor: colors.primary },
+              styles.analysisCard,
+              { transform: [{ scale: modalScaleAnim }] },
             ]}>
-            {/* Eşleşme Oranı Rozeti */}
-            <View style={styles.matchHeaderRow}>
+            {/* Dönen Altın Radar Halkası */}
+            <View style={styles.radarContainer}>
+              <Animated.View
+                style={[
+                  styles.radarCircle,
+                  { transform: [{ rotate: rotateInterpolate }] },
+                ]}>
+                <View style={styles.radarOrb} />
+              </Animated.View>
+
+              <Image
+                source={{ uri: activeSampleCoin.obverseImage }}
+                style={styles.radarCoinThumb}
+                contentFit="cover"
+              />
+            </View>
+
+            {/* Durum Başlığı */}
+            <Text style={styles.analysisTitle}>{analysisStep}</Text>
+
+            {/* İlerleme Çubuğu */}
+            <View style={styles.progressBarTrack}>
               <View
                 style={[
-                  styles.matchPill,
-                  { backgroundColor: colors.primaryLight, borderColor: colors.primary },
-                ]}>
-                <Ionicons name="checkmark-circle" size={15} color={colors.primary} />
-                <Text style={[styles.matchPillText, { color: colors.primary }]}>
-                  %{matchPercentage} Doğrulukla Eşleşti
-                </Text>
-              </View>
-              <Text style={[styles.matchRarity, { color: colors.primary }]}>
-                {recognizedCoin.rarity}
-              </Text>
+                  styles.progressBarFill,
+                  { width: `${analysisProgress}%` },
+                ]}
+              />
             </View>
 
-            {/* Sikke Başlığı & Dönem */}
-            <Text style={[styles.matchCoinTitle, { color: colors.textPrimary }]}>
-              {recognizedCoin.title}
+            {/* Analiz Edilen Nümismatik Özellikler */}
+            <View style={styles.featureGrid}>
+              <View style={styles.featureItem}>
+                <Ionicons name="prism-outline" size={15} color="#D4AF37" />
+                <Text style={styles.featureText}>Maden Spektrumu</Text>
+              </View>
+              <View style={styles.featureItem}>
+                <Ionicons name="finger-print-outline" size={15} color="#D4AF37" />
+                <Text style={styles.featureText}>Rölyef & Lejant</Text>
+              </View>
+              <View style={styles.featureItem}>
+                <Ionicons name="library-outline" size={15} color="#D4AF37" />
+                <Text style={styles.featureText}>Darphane Verisi</Text>
+              </View>
+            </View>
+
+            <Text style={styles.analyzingHint}>
+              Katalog eşleşmesi tamamlanıyor, lütfen bekleyin...
             </Text>
-            <Text style={[styles.matchCoinRuler, { color: colors.textSecondary }]}>
-              {recognizedCoin.ruler} • {recognizedCoin.civilization}
-            </Text>
-
-            {/* Algılanan Teknik Nitelikler */}
-            <View
-              style={[
-                styles.specSummaryBox,
-                { backgroundColor: colors.surfaceSubtle, borderColor: colors.border },
-              ]}>
-              <View style={styles.specMiniItem}>
-                <Text style={[styles.specMiniLabel, { color: colors.textSecondary }]}>
-                  Maden Tespiti
-                </Text>
-                <Text style={[styles.specMiniVal, { color: colors.textPrimary }]}>
-                  {recognizedCoin.material}
-                </Text>
-              </View>
-              <View style={[styles.specMiniDivider, { backgroundColor: colors.border }]} />
-              <View style={styles.specMiniItem}>
-                <Text style={[styles.specMiniLabel, { color: colors.textSecondary }]}>
-                  Tahmini Ağırlık/Çap
-                </Text>
-                <Text style={[styles.specMiniVal, { color: colors.textPrimary }]}>
-                  {recognizedCoin.weight} • {recognizedCoin.diameter}
-                </Text>
-              </View>
-              <View style={[styles.specMiniDivider, { backgroundColor: colors.border }]} />
-              <View style={styles.specMiniItem}>
-                <Text style={[styles.specMiniLabel, { color: colors.textSecondary }]}>
-                  Müzayede Değeri
-                </Text>
-                <Text style={[styles.specMiniVal, { color: colors.primary }]}>
-                  {recognizedCoin.estimatedValue}
-                </Text>
-              </View>
-            </View>
-
-            {/* Butonlar: Detaya Git ve Yeniden Tara */}
-            <View style={styles.matchActionsRow}>
-              <TouchableOpacity
-                activeOpacity={0.8}
-                onPress={handleReset}
-                style={[
-                  styles.rescanBtn,
-                  { backgroundColor: colors.surfaceSubtle, borderColor: colors.border },
-                ]}>
-                <Ionicons name="refresh" size={16} color={colors.textSecondary} />
-                <Text style={[styles.rescanBtnText, { color: colors.textSecondary }]}>
-                  Yeniden Tara
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                activeOpacity={0.88}
-                onPress={() => router.push(`/coin/${recognizedCoin.id}` as any)}
-                style={[styles.inspectMatchBtn, { backgroundColor: colors.primary }]}>
-                <Text style={styles.inspectMatchBtnText}>Eser Detayını Aç</Text>
-                <Ionicons name="arrow-forward" size={15} color="#FFFFFF" />
-              </TouchableOpacity>
-            </View>
-          </View>
-        )}
-
-        {/* 4. HIZLI ÖRNEK SİKKELER İLE TEST ET */}
-        <View style={styles.samplesSection}>
-          <Text style={[styles.samplesEyebrow, { color: colors.primary }]}>
-            HIZLI TEST MODU
-          </Text>
-          <Text style={[styles.samplesTitle, { color: colors.textPrimary }]}>
-            Hazır Sikkelerle Simüle Edin
-          </Text>
-          <Text style={[styles.samplesDesc, { color: colors.textSecondary }]}>
-            Elinizde henüz fiziksel sikke yoksa aşağıdaki tarihi eserlere dokunarak yapay zeka tanıma motorunu hemen deneyin:
-          </Text>
-
-          <View style={styles.sampleChipsGrid}>
-            {MOCK_COINS.slice(0, 4).map((coin) => (
-              <TouchableOpacity
-                key={coin.id}
-                activeOpacity={0.78}
-                onPress={() => startScanSimulation(coin)}
-                style={[
-                  styles.sampleChip,
-                  { backgroundColor: colors.surface, borderColor: colors.border },
-                ]}>
-                <Image
-                  source={{ uri: coin.obverseImage }}
-                  style={styles.sampleChipThumb}
-                  contentFit="cover"
-                />
-                <View style={styles.sampleChipInfo}>
-                  <Text numberOfLines={1} style={[styles.sampleChipTitle, { color: colors.textPrimary }]}>
-                    {coin.title}
-                  </Text>
-                  <Text numberOfLines={1} style={[styles.sampleChipCiv, { color: colors.primary }]}>
-                    {coin.civilization}
-                  </Text>
-                </View>
-                <Ionicons name="scan-outline" size={16} color={colors.primary} />
-              </TouchableOpacity>
-            ))}
-          </View>
+          </Animated.View>
         </View>
-      </ScrollView>
+      </Modal>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  screen: {
+  container: {
     flex: 1,
-    paddingTop: Platform.OS === 'android' ? ANDROID_TOP_SPACING : 48,
+    backgroundColor: '#0F1216', // Profesyonel karanlık kamera vizörü zemini
+    paddingTop: Platform.OS === 'android' ? ANDROID_TOP_SPACING : 44,
   },
-  header: {
-    paddingHorizontal: Spacing.md,
-    paddingBottom: Spacing.md,
-    borderBottomWidth: 1,
-  },
-  headerTitleRow: {
+
+  // 1. ÜST BAR
+  topBar: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    paddingHorizontal: Spacing.md + 4,
+    paddingVertical: Spacing.sm,
   },
-  eyebrow: {
-    fontSize: 10,
-    fontWeight: '800',
-    letterSpacing: 1.2,
-  },
-  title: {
-    fontSize: 21,
-    fontWeight: '800',
-    marginTop: 2,
-  },
-  aiBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: 4,
-    borderRadius: BorderRadius.xs,
-    borderWidth: 1,
-  },
-  aiBadgeText: {
-    fontSize: 10,
-    fontWeight: '800',
-  },
-  scrollContent: {
-    padding: Spacing.md,
-    gap: Spacing.md,
-  },
-  viewfinderCard: {
-    borderRadius: BorderRadius.xl,
-    padding: Spacing.md,
-    borderWidth: 1,
-    alignItems: 'center',
-  },
-  viewfinderTopRow: {
-    width: '100%',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: Spacing.md,
-  },
-  liveIndicator: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  liveDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#34D399',
-  },
-  liveText: {
-    color: '#34D399',
-    fontSize: 10,
-    fontWeight: '800',
-    letterSpacing: 0.8,
-  },
-  guideStepText: {
-    color: '#ADB5BD',
-    fontSize: 11,
-    fontWeight: '600',
-  },
-  reticleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-around',
-    width: '100%',
-    marginVertical: Spacing.sm,
-  },
-  targetWrapper: {
-    alignItems: 'center',
-    gap: 8,
-  },
-  circleTarget: {
-    width: TARGET_SIZE,
-    height: TARGET_SIZE,
-    borderRadius: TARGET_SIZE / 2,
-    borderWidth: 2,
-    alignItems: 'center',
-    justifyContent: 'center',
-    position: 'relative',
-    overflow: 'hidden',
-    backgroundColor: '#0F1115',
-  },
-  targetCoinImg: {
-    width: '100%',
-    height: '100%',
-  },
-  laserLine: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    height: 2,
-    backgroundColor: '#D4AF37',
-    shadowColor: '#D4AF37',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.9,
-    shadowRadius: 5,
-  },
-  corner: {
-    position: 'absolute',
-    width: 10,
-    height: 10,
-    borderColor: '#D4AF37',
-  },
-  cornerTL: {
-    top: 4,
-    left: 4,
-    borderTopWidth: 2,
-    borderLeftWidth: 2,
-  },
-  cornerTR: {
-    top: 4,
-    right: 4,
-    borderTopWidth: 2,
-    borderRightWidth: 2,
-  },
-  cornerBL: {
-    bottom: 4,
-    left: 4,
-    borderBottomWidth: 2,
-    borderLeftWidth: 2,
-  },
-  cornerBR: {
-    bottom: 4,
-    right: 4,
-    borderBottomWidth: 2,
-    borderRightWidth: 2,
-  },
-  targetLabel: {
-    color: '#E9ECEF',
-    fontSize: 10,
-    fontWeight: '700',
-    letterSpacing: 0.5,
-  },
-  viewfinderInstructions: {
-    color: '#CED4DA',
-    fontSize: 12,
-    textAlign: 'center',
-    lineHeight: 18,
-    marginVertical: Spacing.sm,
-    paddingHorizontal: Spacing.sm,
-  },
-  shutterRow: {
-    width: '100%',
-    marginTop: Spacing.xs,
-  },
-  shutterBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    paddingVertical: 13,
-    borderRadius: BorderRadius.md,
-  },
-  shutterBtnText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '800',
-  },
-  matchCard: {
-    borderRadius: BorderRadius.xl,
-    padding: Spacing.md,
-    borderWidth: 1.5,
-    shadowColor: '#1A1D20',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 10,
-    elevation: 3,
-    gap: Spacing.xs + 2,
-  },
-  matchHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  matchPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: Spacing.sm + 2,
-    paddingVertical: 4,
-    borderRadius: BorderRadius.xs,
-    borderWidth: 1,
-  },
-  matchPillText: {
-    fontSize: 11,
-    fontWeight: '800',
-  },
-  matchRarity: {
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  matchCoinTitle: {
-    fontSize: 19,
-    fontWeight: '800',
-    marginTop: 2,
-  },
-  matchCoinRuler: {
-    fontSize: 13,
-    fontWeight: '500',
-  },
-  specSummaryBox: {
-    padding: Spacing.sm + 2,
-    borderRadius: BorderRadius.md,
-    borderWidth: 1,
-    gap: 6,
-    marginVertical: 4,
-  },
-  specMiniItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  specMiniLabel: {
-    fontSize: 11,
-    fontWeight: '500',
-  },
-  specMiniVal: {
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  specMiniDivider: {
-    height: 1,
-    width: '100%',
-  },
-  matchActionsRow: {
-    flexDirection: 'row',
-    gap: Spacing.sm,
-    marginTop: Spacing.xs,
-  },
-  rescanBtn: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 5,
-    paddingVertical: 11,
-    borderRadius: BorderRadius.md,
-    borderWidth: 1,
-  },
-  rescanBtnText: {
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  inspectMatchBtn: {
-    flex: 1.4,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    paddingVertical: 11,
-    borderRadius: BorderRadius.md,
-  },
-  inspectMatchBtnText: {
-    color: '#FFFFFF',
-    fontSize: 13,
-    fontWeight: '800',
-  },
-  samplesSection: {
-    gap: 4,
-    marginTop: Spacing.xs,
-  },
-  samplesEyebrow: {
-    fontSize: 10,
-    fontWeight: '800',
-    letterSpacing: 1.1,
-  },
-  samplesTitle: {
-    fontSize: 17,
-    fontWeight: '800',
-  },
-  samplesDesc: {
-    fontSize: 12,
-    lineHeight: 17,
-    marginBottom: Spacing.xs,
-  },
-  sampleChipsGrid: {
-    gap: Spacing.sm,
-  },
-  sampleChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.sm,
-    padding: Spacing.sm,
-    borderRadius: BorderRadius.lg,
-    borderWidth: 1,
-  },
-  sampleChipThumb: {
+  iconCircleBtn: {
     width: 44,
     height: 44,
     borderRadius: 22,
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
     borderWidth: 1,
-    borderColor: '#E9ECEF',
+    borderColor: 'rgba(255, 255, 255, 0.15)',
   },
-  sampleChipInfo: {
+  iconCircleBtnActive: {
+    backgroundColor: 'rgba(245, 158, 11, 0.22)',
+    borderColor: '#F59E0B',
+  },
+  topCenterTitle: {
+    alignItems: 'center',
+  },
+  liveBadgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 2,
+  },
+  liveBlinkingDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
+    backgroundColor: '#10B981', // Yeşil canlı kamera göstergesi
+  },
+  liveBadgeText: {
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 1.2,
+    color: '#94A3B8',
+  },
+  topMainTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    letterSpacing: 0.3,
+  },
+
+  // 2. TALİMAT METNİ
+  instructionContainer: {
+    alignItems: 'center',
+    paddingHorizontal: Spacing.lg,
+    marginTop: Spacing.sm,
+    marginBottom: Spacing.xs,
+  },
+  instructionPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: 'rgba(212, 175, 55, 0.14)',
+    borderWidth: 1,
+    borderColor: 'rgba(212, 175, 55, 0.35)',
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 7,
+    borderRadius: BorderRadius.full,
+    maxWidth: '96%',
+  },
+  instructionTitle: {
+    fontSize: 12.5,
+    fontWeight: '700',
+    color: '#F1F5F9',
+    textAlign: 'center',
+  },
+  instructionSubtext: {
+    fontSize: 11,
+    color: '#94A3B8',
+    marginTop: 6,
+    textAlign: 'center',
+  },
+
+  // 3. MERKEZİ VİZÖR
+  viewfinderSection: {
     flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+    marginVertical: Spacing.sm,
   },
-  sampleChipTitle: {
-    fontSize: 13,
+  cornerGuide: {
+    position: 'absolute',
+    width: 28,
+    height: 28,
+    borderColor: '#D4AF37', // Mat Antik Altın
+  },
+  cornerTL: {
+    top: '50%',
+    left: '50%',
+    marginTop: -(VIEWFINDER_SIZE / 2) - 16,
+    marginLeft: -(VIEWFINDER_SIZE / 2) - 16,
+    borderTopWidth: 3,
+    borderLeftWidth: 3,
+    borderTopLeftRadius: 6,
+  },
+  cornerTR: {
+    top: '50%',
+    right: '50%',
+    marginTop: -(VIEWFINDER_SIZE / 2) - 16,
+    marginRight: -(VIEWFINDER_SIZE / 2) - 16,
+    borderTopWidth: 3,
+    borderRightWidth: 3,
+    borderTopRightRadius: 6,
+  },
+  cornerBL: {
+    bottom: '50%',
+    left: '50%',
+    marginBottom: -(VIEWFINDER_SIZE / 2) - 16,
+    marginLeft: -(VIEWFINDER_SIZE / 2) - 16,
+    borderBottomWidth: 3,
+    borderLeftWidth: 3,
+    borderBottomLeftRadius: 6,
+  },
+  cornerBR: {
+    bottom: '50%',
+    right: '50%',
+    marginBottom: -(VIEWFINDER_SIZE / 2) - 16,
+    marginRight: -(VIEWFINDER_SIZE / 2) - 16,
+    borderBottomWidth: 3,
+    borderRightWidth: 3,
+    borderBottomRightRadius: 6,
+  },
+
+  // Dairesel Altın Kesikli Vizör
+  goldDashedCircle: {
+    width: VIEWFINDER_SIZE,
+    height: VIEWFINDER_SIZE,
+    borderRadius: VIEWFINDER_SIZE / 2,
+    borderWidth: 2.5,
+    borderColor: '#D4AF37',
+    borderStyle: 'dashed',
+    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#161A20',
+    position: 'relative',
+    shadowColor: '#D4AF37',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.35,
+    shadowRadius: 18,
+    elevation: 8,
+  },
+  viewfinderCoinImage: {
+    width: '100%',
+    height: '100%',
+    opacity: 0.55, // Canlı kamera vizörü hissi veren yarı saydam arka plan
+  },
+  viewfinderOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(15, 18, 22, 0.25)',
+  },
+  centerCrosshair: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  crosshairH: {
+    width: 24,
+    height: 1.5,
+    backgroundColor: 'rgba(212, 175, 55, 0.7)',
+  },
+  crosshairV: {
+    width: 1.5,
+    height: 24,
+    backgroundColor: 'rgba(212, 175, 55, 0.7)',
+    position: 'absolute',
+  },
+  laserLine: {
+    position: 'absolute',
+    width: '94%',
+    height: 2.5,
+    backgroundColor: '#EAB308',
+    shadowColor: '#FBBF24',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.95,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  degreeIndicator: {
+    marginTop: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 3,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderRadius: BorderRadius.full,
+  },
+  degreeText: {
+    fontSize: 9.5,
+    fontWeight: '700',
+    letterSpacing: 1,
+    color: '#94A3B8',
+  },
+
+  // 4. ALT KONTROLLER
+  bottomControls: {
+    paddingBottom: BottomTabInset + 18, // Alt barın hemen üstünde duracak boşluk
+    alignItems: 'center',
+    paddingHorizontal: Spacing.md,
+  },
+  sideToggleContainer: {
+    flexDirection: 'row',
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderRadius: BorderRadius.full,
+    padding: 3,
+    marginBottom: Spacing.md,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
+  },
+  sideToggleBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: Spacing.md + 2,
+    paddingVertical: 8,
+    borderRadius: BorderRadius.full,
+  },
+  sideToggleBtnActive: {
+    backgroundColor: '#9E7B3B', // Antik Bronz
+    shadowColor: '#9E7B3B',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.4,
+    shadowRadius: 6,
+    elevation: 4,
+  },
+  sideToggleText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#94A3B8',
+  },
+  sideToggleTextActive: {
+    color: '#FFFFFF',
     fontWeight: '700',
   },
-  sampleChipCiv: {
-    fontSize: 11,
+
+  // Deklanşör
+  shutterWrapper: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: Spacing.sm,
+  },
+  shutterOuterRing: {
+    width: 78,
+    height: 78,
+    borderRadius: 39,
+    borderWidth: 4,
+    borderColor: '#D4AF37', // Dış altın yüzük
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(212, 175, 55, 0.15)',
+    shadowColor: '#D4AF37',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.45,
+    shadowRadius: 10,
+    elevation: 8,
+  },
+  shutterInnerCircle: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: '#F8FAFC', // Deklanşör iç butonu
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  galleryShortcutBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+  },
+  galleryShortcutText: {
+    fontSize: 12,
+    color: '#94A3B8',
     fontWeight: '600',
-    marginTop: 2,
+  },
+
+  // 5. YÜKLENME & ANALİZ MODALI
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(10, 13, 18, 0.88)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: Spacing.lg,
+  },
+  analysisCard: {
+    width: '100%',
+    maxWidth: 360,
+    backgroundColor: '#1E232B',
+    borderRadius: BorderRadius.xl,
+    padding: Spacing.lg + 4,
+    alignItems: 'center',
+    borderWidth: 1.5,
+    borderColor: 'rgba(212, 175, 55, 0.4)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.5,
+    shadowRadius: 20,
+    elevation: 16,
+  },
+  radarContainer: {
+    width: 110,
+    height: 110,
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+    marginBottom: Spacing.md,
+  },
+  radarCircle: {
+    width: 106,
+    height: 106,
+    borderRadius: 53,
+    borderWidth: 2,
+    borderColor: 'rgba(212, 175, 55, 0.35)',
+    borderStyle: 'dashed',
+    position: 'absolute',
+  },
+  radarOrb: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: '#D4AF37',
+    position: 'absolute',
+    top: -6,
+    left: 47,
+    shadowColor: '#D4AF37',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.9,
+    shadowRadius: 8,
+  },
+  radarCoinThumb: {
+    width: 82,
+    height: 82,
+    borderRadius: 41,
+    borderWidth: 2,
+    borderColor: '#D4AF37',
+  },
+  analysisTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    textAlign: 'center',
+    marginBottom: Spacing.md,
+    minHeight: 22,
+  },
+  progressBarTrack: {
+    width: '100%',
+    height: 6,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 3,
+    overflow: 'hidden',
+    marginBottom: Spacing.md,
+  },
+  progressBarFill: {
+    height: '100%',
+    backgroundColor: '#D4AF37',
+    borderRadius: 3,
+  },
+  featureGrid: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    width: '100%',
+    marginBottom: Spacing.md,
+    paddingTop: Spacing.xs,
+    borderTopWidth: 0.5,
+    borderTopColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  featureItem: {
+    alignItems: 'center',
+    gap: 4,
+  },
+  featureText: {
+    fontSize: 10,
+    color: '#94A3B8',
+    fontWeight: '600',
+  },
+  analyzingHint: {
+    fontSize: 11,
+    color: '#64748B',
+    textAlign: 'center',
   },
 });
-
