@@ -14,6 +14,9 @@ export interface CoinItem {
   rarity: string;
   estimatedValue: string;
   description: string;
+  mint?: string;
+  condition?: string;
+  numericPrice?: number;
   isScanned?: boolean;
 }
 
@@ -44,7 +47,10 @@ export const MOCK_COINS: CoinItem[] = [
     reverseDesc: 'ETOUS BIR.I lejantı. Şimşek demeti üzerinde sağa dönük duran Roma lejyon kartalı, kanatları açık, sağ tarafta palmiye dalı sembolü.',
     rarity: 'R1 (Nadir)',
     estimatedValue: '$795',
-    description: 'Roma İmparatorluğu\'nun Doğu Akdeniz ticaret merkezi olan Antakya (Antioch) darphanesinde basılan bu tetradrahmi, Nero\'nun saltanatının 9. yılına (M.S. 63) tarihlenir. Gümüş ayarı ve kondisyonu (GVF - Good Very Fine) oldukça yüksektir.',
+    numericPrice: 795,
+    mint: 'Antakya (Antiochia)',
+    condition: 'VF (Temiz / Very Fine)',
+    description: 'Roma İmparatorluğu\'nun Doğu Akdeniz ticaret merkezi olan Antakya (Antioch) darphanesinde basılan bu tetradrahmi, Nero\'nun saltanatının 9. yılına (M.S. 63) tarihlenir. Gümüş ayarı ve kondisyonu oldukça yüksektir.',
   },
   {
     id: 'coin-nero-tetradrachm-54-68',
@@ -61,6 +67,9 @@ export const MOCK_COINS: CoinItem[] = [
     reverseDesc: 'Şimşek üzerinde duran kartal motifi, etrafında Grekçe eyalet lejantları.',
     rarity: 'R1 (Nadir)',
     estimatedValue: '$550',
+    numericPrice: 550,
+    mint: 'Antakya (Antiochia)',
+    condition: 'VF (Temiz / Very Fine)',
     description: 'Antakya darphanesinde yerel tüccarlar ve lejyoner ödemeleri için tedavüle çıkarılan klasik Nero tetradrahmisi.',
   },
   {
@@ -78,6 +87,9 @@ export const MOCK_COINS: CoinItem[] = [
     reverseDesc: 'Şimşek üzerinde kartal, kanatları hafif açık, önünde harf işareti (darphane görevlisi amblemi).',
     rarity: 'R2 (Oldukça Nadir)',
     estimatedValue: '$525',
+    numericPrice: 525,
+    mint: 'Antakya (Antiochia)',
+    condition: 'EF / XF (Çok Temiz / Extremely Fine)',
     description: 'Flavius hanedanının son imparatoru Domitian dönemine ait sağlam merkezlenmiş nadir bir darp örneği.',
   },
   {
@@ -95,6 +107,9 @@ export const MOCK_COINS: CoinItem[] = [
     reverseDesc: 'Oğlu ve veliahdı Titus Caesar\'ın büstü; genç hatlar ve sağa bakan duruş.',
     rarity: 'R2 (Müzelik Lot)',
     estimatedValue: '$1,990',
+    numericPrice: 1990,
+    mint: 'Roma',
+    condition: 'EF / XF (Çok Temiz / Extremely Fine)',
     description: 'Roma hanedan verasetini ilan etmek için baba-oğul imparatorların yüzlerini aynı sikkede buluşturan son derece prestijli bir nümismatik eser.',
   },
   {
@@ -112,6 +127,9 @@ export const MOCK_COINS: CoinItem[] = [
     reverseDesc: 'Kutsal Roma kartalı ve palmiye motifi, yüksek kabartmalı darp.',
     rarity: 'R2 (Koleksiyonluk)',
     estimatedValue: '$1,500',
+    numericPrice: 1500,
+    mint: 'İskenderiye (Alexandria)',
+    condition: 'VF (Temiz / Very Fine)',
     description: 'İskenderiye ekolü sanatçıların Antakya için hazırladığı kalıplardan basılan, kusursuz merkezlenmiş nadir bir varyant.',
   },
   {
@@ -129,6 +147,9 @@ export const MOCK_COINS: CoinItem[] = [
     reverseDesc: 'Kartal şimşek demeti üzerinde, kanatları gergin, Grekçe unvan lejantı.',
     rarity: 'R1 (Nadir)',
     estimatedValue: '$750',
+    numericPrice: 750,
+    mint: 'Antakya (Antiochia)',
+    condition: 'VF (Temiz / Very Fine)',
     description: 'Titus henüz tek başına imparator olmadan önce babası Vespasian adına bastırılan gümüş tetradrahmi.',
   },
   {
@@ -146,6 +167,9 @@ export const MOCK_COINS: CoinItem[] = [
     reverseDesc: 'Geniş kanatlı heybetli Roma kartalı, şimşek üzerinde; mükemmel gümüş tonu.',
     rarity: 'R2 (Oldukça Nadir)',
     estimatedValue: '$1,900',
+    numericPrice: 1900,
+    mint: 'Antakya (Antiochia)',
+    condition: 'EF / XF (Çok Temiz / Extremely Fine)',
     description: 'Antakya eyalet darphanesinin en usta oymacıları tarafından hazırlanan kusursuz darp.',
   },
   {
@@ -163,6 +187,9 @@ export const MOCK_COINS: CoinItem[] = [
     reverseDesc: 'Kutsal kartal şimşek üzerinde, sola dönük baş, gagasında çelenk.',
     rarity: 'R1 (Nadir)',
     estimatedValue: '$890',
+    numericPrice: 890,
+    mint: 'Antakya (Antiochia)',
+    condition: 'Fine (Orta / Fine)',
     description: 'Nero\'nun henüz ergenlikten yetişkinliğe geçtiği saltanatının ilk yıllarındaki naif portresini yansıtır.',
   },
   {
@@ -180,6 +207,9 @@ export const MOCK_COINS: CoinItem[] = [
     reverseDesc: 'Şimşek üzerinde kanatlarını kabartmış duran zafer kartalı; pürüzsüz gümüş ayna zemin.',
     rarity: 'R3 (Son Derece Nadir - EF)',
     estimatedValue: '$2,800',
+    numericPrice: 2800,
+    mint: 'Antakya (Antiochia)',
+    condition: 'FDC / MS (Çil / Mint State - Kusursuz)',
     description: 'Koleksiyonerler arasında "STUNNING" (Büyüleyici) olarak nitelendirilen, neredeyse darp edildiği günkü parlaklığını koruyan müzelik örnek.',
   },
   {
@@ -197,6 +227,9 @@ export const MOCK_COINS: CoinItem[] = [
     reverseDesc: 'Şimşek üzerinde duran kartal ve darphane tarih lejantı.',
     rarity: 'R1 (Nadir)',
     estimatedValue: '$800',
+    numericPrice: 800,
+    mint: 'Antakya (Antiochia)',
+    condition: 'VF (Temiz / Very Fine)',
     description: 'Suriye-Fenike kıyı şeridinde tedavül gören gümüş sikke.',
   },
   {
@@ -214,6 +247,9 @@ export const MOCK_COINS: CoinItem[] = [
     reverseDesc: 'Kartal figürü ve arka planda zafer sembolü Fenike palmiyesi.',
     rarity: 'R1 (Nadir)',
     estimatedValue: '$890',
+    numericPrice: 890,
+    mint: 'Antakya (Antiochia)',
+    condition: 'VF (Temiz / Very Fine)',
     description: 'Yahudi Savaşı zaferinden sonra basılan ve Doğu eyaletlerinde barışı müjdeleyen sikke.',
   },
   {
@@ -231,6 +267,9 @@ export const MOCK_COINS: CoinItem[] = [
     reverseDesc: 'Şimşek üzerinde kartal, kanatları açık, gagasında çelenk tutmakta.',
     rarity: 'R3 (Ünik Müzayede Parçası)',
     estimatedValue: '$5,500',
+    numericPrice: 5500,
+    mint: 'Antakya (Antiochia)',
+    condition: 'EF / XF (Çok Temiz / Extremely Fine)',
     description: 'Nero\'nun ölümünden sonra sadece 7 ay tahtta kalabilen Galba adına Antakya\'da basılmış son derece ender ve tarihi iç savaşı simgeleyen kıymetli lot.',
   },
   {
@@ -248,6 +287,9 @@ export const MOCK_COINS: CoinItem[] = [
     reverseDesc: 'Deultum kolonisinin koruyucu tanrısı veya mitolojik kahramanı tasviri, COL FL PAC DEVLT lejantı.',
     rarity: 'R1 (Koleksiyonluk - VF+)',
     estimatedValue: '$135',
+    numericPrice: 135,
+    mint: 'Bergama (Pergamon)',
+    condition: 'VF (Temiz / Very Fine)',
     description: 'Trakya kıyısındaki Roma kolonisi Deultum (günümüz Bulgaristan) darphanesinde basılmış çekici koyu yeşil patinalı bronz sikke.',
   },
   {
@@ -265,6 +307,9 @@ export const MOCK_COINS: CoinItem[] = [
     reverseDesc: 'P-E-T-A harfleriyle Pelinna nympha büstü veya miğferli savaş tanrısı.',
     rarity: 'R1 (Bölgesel Nadir)',
     estimatedValue: '$90',
+    numericPrice: 90,
+    mint: 'Atina',
+    condition: 'Fine (Orta / Fine)',
     description: 'Meşhur Teselya süvarilerini ve antik çağ at yetiştiriciliğini belgeleyen Klasik Yunan dönemi bronz sikke.',
   },
   {
@@ -282,6 +327,9 @@ export const MOCK_COINS: CoinItem[] = [
     reverseDesc: 'Fenike savaş kadırgası (bireme) pruvası, denizde kürek çekerken; Fenike alfabesiyle ada adı.',
     rarity: 'R1 (Tarihi Parça - VF)',
     estimatedValue: '$68',
+    numericPrice: 68,
+    mint: 'Efes (Ephesos)',
+    condition: 'VF (Temiz / Very Fine)',
     description: 'Akdeniz deniz ticaretine yön veren Fenike şehir devleti Arados adasının denizcilik gücünü sergileyen antik sikke.',
   },
   {
@@ -299,6 +347,9 @@ export const MOCK_COINS: CoinItem[] = [
     reverseDesc: 'Zerdüşt kutsal ateş sunağı (Ataşgah) ve sunağın iki yanında duran nöbetçiler.',
     rarity: 'R2 (Doğu Nümismatiği)',
     estimatedValue: '$179',
+    numericPrice: 179,
+    mint: 'İskenderiye (Alexandria)',
+    condition: 'Fine (Orta / Fine)',
     description: 'Sasani İmparatorluğu\'nun Kuşan krallığını fethettikten sonra İpek Yolu kavşağı Merv şehrinde darp ettiği nadir para birimi.',
   },
   {
@@ -316,6 +367,9 @@ export const MOCK_COINS: CoinItem[] = [
     reverseDesc: 'Kuşan aslanı veya mitolojik kutsal boğa figürü, Grek-Baktriya alfabesiyle kralın unvanı.',
     rarity: 'R2 (Çok Nadir İskit Boyu)',
     estimatedValue: '$235',
+    numericPrice: 235,
+    mint: 'Sardis (Salihli)',
+    condition: 'VF (Temiz / Very Fine)',
     description: 'Orta Asya steplerinden Baktriya bölgesine inen Yuezhi konfederasyonunun ilk bağımsız gümüş sikke serilerinden.',
   },
   {
@@ -333,6 +387,9 @@ export const MOCK_COINS: CoinItem[] = [
     reverseDesc: 'Merkezde Fatımi davet ibaresi, çevresinde darphane yeri ve basım yılı içeren Kufi kufik halka.',
     rarity: 'R3 (Ünik Müzayede Parçası)',
     estimatedValue: '$460',
+    numericPrice: 460,
+    mint: 'Konstantinopolis (İstanbul)',
+    condition: 'FDC / MS (Çil / Mint State - Kusursuz)',
     description: 'İspanya ve Kuzey Afrika İslam nümismatiğinin en nadide altın dinarlarından biri; kusursuz Kufi hat sanatını yansıtır.',
   },
   {
@@ -350,6 +407,9 @@ export const MOCK_COINS: CoinItem[] = [
     reverseDesc: 'Peru cumhuriyet arması: lama, kınakına ağacı ve bereket boynuzu; Cuzco darphane damgası.',
     rarity: 'R2 (EF Kondisyon)',
     estimatedValue: '$1,550',
+    numericPrice: 1550,
+    mint: 'Roma',
+    condition: 'EF / XF (Çok Temiz / Extremely Fine)',
     description: '1838 Cuzco darphaneli bu iri gümüş taç sikke (Crown), Güney Amerika\'nın en çok aranan tarihi koleksiyon sikkelerindendir.',
   },
   {
@@ -367,6 +427,49 @@ export const MOCK_COINS: CoinItem[] = [
     reverseDesc: 'Tarihi Cerro Rico (Zengin Tepe) gümüş madeni manzarası, iki lama ve palmiye ağacı altında altı yıldız.',
     rarity: 'R1 (Çil / Uncirculated)',
     estimatedValue: '$465',
+    numericPrice: 465,
+    mint: 'Konstantinopolis (İstanbul)',
+    condition: 'FDC / MS (Çil / Mint State - Kusursuz)',
     description: 'Dünyanın en meşhur gümüş darphanesi olan Potosi\'de (PTS) darp edilmiş, Simon Bolivar portreli çil kondisyonda nümismatik başyapıt.',
+  },
+  {
+    id: 'coin-alexander-great-tetradrachm',
+    title: 'Büyük İskender Zafer Tetradrahmisi',
+    civilization: 'Makedonya Krallığı (Antik Yunan)',
+    ruler: 'III. Aleksandros (Büyük İskender)',
+    period: 'M.Ö. 336 – 323',
+    material: 'Gümüş (AR Tetradrahmi)',
+    weight: '17.20 g',
+    diameter: '28.0 mm',
+    obverseImage: 'https://images.vcoins.com/product_image/322/e/6/eQnN84bZ76G5R84594u3v6bL5h4D6K.jpg',
+    reverseImage: 'https://images.vcoins.com/product_image/322/e/6/eQnN84bZ76G5R84594u3v6bL5h4D6K.jpg',
+    obverseDesc: 'Aslan postu başlığı içinde genç Herakles büstü, sağa bakan kararlı profil.',
+    reverseDesc: 'Tahtında oturan Zeus Aëtophoros; sol elinde asa, sağ elinde kutsal kartal, Grekçe ALEXANDROU lejantı.',
+    rarity: 'R2 (Müzelik Lot)',
+    estimatedValue: '$1,850',
+    numericPrice: 1850,
+    mint: 'Atina',
+    condition: 'EF / XF (Çok Temiz / Extremely Fine)',
+    description: 'Büyük İskender\'in doğu seferleri sırasında bastırılan ve antik nümismatiğin simgesi haline gelen anıtsal zafer tetradrahmisi.',
+  },
+  {
+    id: 'coin-syracuse-gold-stater',
+    title: 'Syracuse Saf Altın Stateri (Persephone)',
+    civilization: 'Antik Yunan (Magna Graecia / Sicilya)',
+    ruler: 'Tiran Agathokles (M.Ö. 317 – 289)',
+    period: 'M.Ö. 4. Yüzyıl (Helenistik Çağ)',
+    material: 'Saf Altın (AV Stater)',
+    weight: '4.28 g',
+    diameter: '16.5 mm',
+    obverseImage: 'https://images.vcoins.com/product_image/307/X/6/xx4Rj3WwmGq7Bc6d5Jana9AoSc8GfK.jpg',
+    reverseImage: 'https://images.vcoins.com/product_image/307/X/6/xx4Rj3WwmGq7Bc6d5Jana9AoSc8GfK.jpg',
+    obverseDesc: 'Sağa bakan dalgalı saçlı tanrıça Kore/Persephone başı, zarif saç örgüsü; yüksek kabartmalı Helenistik altın darp.',
+    reverseDesc: 'Görkemli iki atlı savaş arabası (Biga) süren kanatlı Nike zafer tanrıçası figürü ve darphane monogramı.',
+    rarity: 'R3 (Ünik Müzayede Parçası)',
+    estimatedValue: '$3,600',
+    numericPrice: 3600,
+    mint: 'Roma',
+    condition: 'FDC / MS (Çil / Mint State - Kusursuz)',
+    description: 'Sicilya\'nın en güçlü Grek kolonisi Syracuse darphanesinde basılan bu stater, antik dönemin en değerli saf altın nümismatik başyapıtlarındandır.',
   },
 ];

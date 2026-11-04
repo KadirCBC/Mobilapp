@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   FlatList,
   Platform,
@@ -10,54 +10,370 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 
 import { CoinCard } from '@/components/CoinCard';
+import { FilterModal } from '@/components/FilterModal';
 import { BorderRadius, BottomTabInset, Colors, MaxContentWidth, Spacing } from '@/constants/theme';
 import { CATEGORIES } from '@/data/categories';
+import {
+  CIVILIZATIONS,
+  DEFAULT_FILTER_STATE,
+  FilterState,
+  METALS,
+} from '@/data/filterOptions';
 import { CoinItem, MOCK_COINS } from '@/data/mockData';
 import { useTheme } from '@/hooks/use-theme';
 
 const ANDROID_TOP_SPACING = (RNStatusBar.currentHeight ?? 24) + 8;
 
+export interface SmartPresetItem {
+  id: string;
+  label: string;
+}
+
+export const SMART_PRESETS: SmartPresetItem[] = [
+  { id: 'all', label: 'Tüm Arşiv' },
+  { id: 'museum_rare', label: '👑 Müzelik Nadirler' },
+  { id: 'pure_gold', label: '🟡 Saf Altınlar' },
+  { id: 'ancient_rome', label: '🏛️ Antik Roma' },
+  { id: 'alexander_series', label: '⚡ Büyük İskender Serisi' },
+  { id: 'over_50k', label: '🏷️ 50.000₺ Üzeri' },
+];
+
+interface QuickFilterItem {
+  id: string;
+  label: string;
+  type: 'all' | 'metal' | 'civilization';
+  value?: string;
+  dotColor?: string;
+}
+
+const QUICK_FILTERS: QuickFilterItem[] = [
+  { id: 'all', label: 'Tümü', type: 'all' },
+  { id: 'gold', label: 'Altın', type: 'metal', value: 'gold', dotColor: '#D4AF37' },
+  { id: 'silver', label: 'Gümüş', type: 'metal', value: 'silver', dotColor: '#CBD5E1' },
+  { id: 'bronze', label: 'Bronz', type: 'metal', value: 'bronze', dotColor: '#CD7F32' },
+  { id: 'roma', label: 'Roma', type: 'civilization', value: 'roman-empire' },
+  { id: 'greek', label: 'Greek (Antik Yunan)', type: 'civilization', value: 'greek' },
+  { id: 'bizans', label: 'Bizans', type: 'civilization', value: 'byzantine' },
+  { id: 'osmanli', label: 'Osmanlı', type: 'civilization', value: 'ottoman' },
+];
+
+function parseCoinValue(val: string): number {
+  const num = parseInt(val.replace(/[^0-9]/g, ''), 10);
+  return isNaN(num) ? 0 : num;
+}
+
 export default function HomeScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams<{ civ?: string }>();
   const theme = useTheme();
   const colors = theme ?? Colors.light;
 
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCivilization, setSelectedCivilization] = useState('Tümü');
+  const [selectedCivilization, setSelectedCivilization] = useState(params.civ ?? 'Tümü');
+  const [selectedPreset, setSelectedPreset] = useState<string>('all');
+  const [filterModalVisible, setFilterModalVisible] = useState(false);
+  const [filters, setFilters] = useState<FilterState>(DEFAULT_FILTER_STATE);
+
+  useEffect(() => {
+    if (params.civ) {
+      setSelectedCivilization(params.civ);
+    }
+  }, [params.civ]);
 
   // Günün / Haftanın Nadir Eseri (Featured Hero)
   const featuredCoin = MOCK_COINS[0];
 
-  // Arama ve Medeniyet Filtresi
+  // Akıllı filtre çipine tıklandığında
+  const handlePresetPress = (presetId: string) => {
+    if (selectedPreset === presetId && presetId !== 'all') {
+      setSelectedPreset('all');
+    } else {
+      setSelectedPreset(presetId);
+    }
+  };
+
+  const handleClearPreset = () => {
+    setSelectedPreset('all');
+  };
+
+  // Aktif filtre sayısı (Rozette gösterilir)
+  const activeFilterCount = useMemo(() => {
+    let count = 0;
+    if (selectedPreset !== 'all') count += 1;
+    if (filters.metals.length > 0) count += filters.metals.length;
+    if (filters.civilizations.length > 0) count += filters.civilizations.length;
+    if (filters.eras.length > 0) count += filters.eras.length;
+    if (filters.mints && filters.mints.length > 0) count += filters.mints.length;
+    if (filters.conditions && filters.conditions.length > 0) count += filters.conditions.length;
+    if (filters.hasImageBackAndFront) count += 1;
+    if (filters.minPrice !== null || filters.maxPrice !== null) count += 1;
+    if (filters.minYear !== null || filters.maxYear !== null) count += 1;
+    if (filters.sortBy !== 'name') count += 1;
+    return count;
+  }, [filters, selectedPreset]);
+
+  // Hızlı filtre çipine tıklandığında
+  const handleQuickFilterPress = (chip: QuickFilterItem) => {
+    if (chip.type === 'all') {
+      setFilters(DEFAULT_FILTER_STATE);
+      setSelectedCivilization('Tümü');
+      return;
+    }
+
+    if (chip.type === 'metal' && chip.value) {
+      setFilters((prev) => {
+        const hasMetal = prev.metals.includes(chip.value!);
+        return {
+          ...prev,
+          metals: hasMetal
+            ? prev.metals.filter((m) => m !== chip.value)
+            : [...prev.metals, chip.value!],
+        };
+      });
+    }
+
+    if (chip.type === 'civilization' && chip.value) {
+      setFilters((prev) => {
+        const hasCiv = prev.civilizations.includes(chip.value!);
+        return {
+          ...prev,
+          civilizations: hasCiv
+            ? prev.civilizations.filter((c) => c !== chip.value)
+            : [...prev.civilizations, chip.value!],
+        };
+      });
+    }
+  };
+
+  // Hızlı filtre çipinin aktifliği
+  const getIsChipActive = (chip: QuickFilterItem) => {
+    if (chip.type === 'all') {
+      return (
+        filters.metals.length === 0 &&
+        filters.civilizations.length === 0 &&
+        filters.eras.length === 0 &&
+        selectedCivilization === 'Tümü'
+      );
+    }
+    if (chip.type === 'metal' && chip.value) {
+      return filters.metals.includes(chip.value);
+    }
+    if (chip.type === 'civilization' && chip.value) {
+      return (
+        filters.civilizations.includes(chip.value) ||
+        (chip.id === 'roma' && selectedCivilization.toLowerCase().includes('roma')) ||
+        (chip.id === 'greek' && selectedCivilization.toLowerCase().includes('yunan')) ||
+        (chip.id === 'bizans' && selectedCivilization.toLowerCase().includes('bizans')) ||
+        (chip.id === 'osmanli' && selectedCivilization.toLowerCase().includes('osmanlı'))
+      );
+    }
+    return false;
+  };
+
+  // Tüm filtreleri sıfırla
+  const handleResetAllFilters = () => {
+    setSearchQuery('');
+    setSelectedCivilization('Tümü');
+    setSelectedPreset('all');
+    setFilters(DEFAULT_FILTER_STATE);
+  };
+
+  // Çok Kriterli Gelişmiş Süzme (Akıllı Rozetler + Arama + Madenler + Medeniyetler + Çağlar + Sıralama)
   const filteredCoins = useMemo(() => {
-    return MOCK_COINS.filter((coin) => {
-      const sel = selectedCivilization.toLowerCase();
-      const civ = coin.civilization.toLowerCase();
-      const matchesCategory =
-        selectedCivilization === 'Tümü' ||
-        civ.includes(sel) ||
-        sel.includes(civ) ||
-        (sel.includes('yunan') && (civ.includes('yunan') || civ.includes('fenike'))) ||
-        (sel.includes('islam') && (civ.includes('islam') || civ.includes('sasani') || civ.includes('baktriya')));
+    let list = MOCK_COINS.filter((coin) => {
+      // 0. Akıllı Filtre Rozetleri (Smart Presets)
+      if (selectedPreset !== 'all') {
+        if (selectedPreset === 'museum_rare') {
+          const rarityUpper = coin.rarity.toUpperCase();
+          const condUpper = (coin.condition || '').toUpperCase();
+          const isMuseum =
+            rarityUpper.includes('R2') ||
+            rarityUpper.includes('R3') ||
+            rarityUpper.includes('R4') ||
+            rarityUpper.includes('R5') ||
+            rarityUpper.includes('MÜZELİK') ||
+            rarityUpper.includes('ÜNİK') ||
+            condUpper.includes('FDC') ||
+            condUpper.includes('MS') ||
+            condUpper.includes('XF') ||
+            condUpper.includes('EF');
+          if (!isMuseum) return false;
+        } else if (selectedPreset === 'pure_gold') {
+          const matLower = coin.material.toLowerCase();
+          const isGold =
+            matLower.includes('altın') ||
+            matLower.includes('stater') ||
+            matLower.includes('solidus') ||
+            matLower.includes('dinar') ||
+            matLower.includes('au');
+          if (!isGold) return false;
+        } else if (selectedPreset === 'ancient_rome') {
+          const civLower = coin.civilization.toLowerCase();
+          const rulerLower = coin.ruler.toLowerCase();
+          const descLower = coin.description.toLowerCase();
+          const isRome =
+            civLower.includes('roma') ||
+            rulerLower.includes('roma') ||
+            rulerLower.includes('nero') ||
+            rulerLower.includes('vespasian') ||
+            rulerLower.includes('titus') ||
+            rulerLower.includes('caesar') ||
+            rulerLower.includes('severus') ||
+            rulerLower.includes('augustus') ||
+            rulerLower.includes('domitian') ||
+            descLower.includes('roma');
+          if (!isRome) return false;
+        } else if (selectedPreset === 'alexander_series') {
+          const textScope = `${coin.title} ${coin.ruler} ${coin.civilization} ${coin.period} ${coin.description}`.toLowerCase();
+          const isAlex =
+            textScope.includes('iskender') ||
+            textScope.includes('alexander') ||
+            textScope.includes('makedon') ||
+            textScope.includes('lysimachos') ||
+            textScope.includes('aleksandros');
+          if (!isAlex) return false;
+        } else if (selectedPreset === 'over_50k') {
+          // 50.000 TL Üzeri (USD karşılığı yaklaşık ~1,300$+ veya numericPrice * 38 >= 50000)
+          const valInUSD = coin.numericPrice ?? parseCoinValue(coin.estimatedValue);
+          const isOver50k = valInUSD * 38 >= 50000 || valInUSD >= 1300;
+          if (!isOver50k) return false;
+        }
+      }
 
+      // 1. Metin araması
       const q = searchQuery.trim().toLowerCase();
-      const matchesSearch =
-        q === '' ||
-        coin.title.toLowerCase().includes(q) ||
-        coin.ruler.toLowerCase().includes(q) ||
-        coin.civilization.toLowerCase().includes(q) ||
-        coin.period.toLowerCase().includes(q) ||
-        coin.material.toLowerCase().includes(q);
+      if (q !== '') {
+        const matchesQuery =
+          coin.title.toLowerCase().includes(q) ||
+          coin.ruler.toLowerCase().includes(q) ||
+          coin.civilization.toLowerCase().includes(q) ||
+          coin.period.toLowerCase().includes(q) ||
+          coin.material.toLowerCase().includes(q) ||
+          coin.description.toLowerCase().includes(q);
+        if (!matchesQuery) return false;
+      }
 
-      return matchesCategory && matchesSearch;
+      // 2. Madenler Dizisi (filters.metals)
+      if (filters.metals.length > 0) {
+        const coinMat = coin.material.toLowerCase();
+        const matchesMetal = filters.metals.some((metalId) => {
+          const metalOpt = METALS.find((m) => m.id === metalId);
+          if (!metalOpt) return false;
+          return (
+            coinMat.includes(metalOpt.code.toLowerCase()) ||
+            coinMat.includes(metalOpt.name.toLowerCase().split(' ')[0]) ||
+            (metalOpt.code === 'AU' && (coinMat.includes('altın') || coinMat.includes('stater') || coinMat.includes('solidus'))) ||
+            (metalOpt.code === 'AR' && (coinMat.includes('gümüş') || coinMat.includes('denarius') || coinMat.includes('tetradrahmi') || coinMat.includes('drahmi'))) ||
+            (metalOpt.code === 'AE' && (coinMat.includes('bronz') || coinMat.includes('bakır') || coinMat.includes('follis') || coinMat.includes('sestertius'))) ||
+            (metalOpt.code === 'EL' && coinMat.includes('elektrum')) ||
+            (metalOpt.code === 'BI' && coinMat.includes('bilyon'))
+          );
+        });
+        if (!matchesMetal) return false;
+      }
+
+      // 3. Medeniyetler Dizisi (filters.civilizations) & Hızlı Medeniyet Seçimi
+      if (filters.civilizations.length > 0) {
+        const coinCiv = coin.civilization.toLowerCase();
+        const matchesCiv = filters.civilizations.some((civId) => {
+          if (civId === 'greek') {
+            return coinCiv.includes('yunan') || coinCiv.includes('sicilya') || coinCiv.includes('grek') || coinCiv.includes('makedonya');
+          }
+          if (civId === 'roman-empire' || civId === 'roman-republic') {
+            return coinCiv.includes('roma');
+          }
+          if (civId === 'byzantine') {
+            return coinCiv.includes('bizans');
+          }
+          if (civId === 'macedon') {
+            return coinCiv.includes('makedonya');
+          }
+          if (civId === 'lydia') {
+            return coinCiv.includes('lidya');
+          }
+          if (civId === 'seljuk') {
+            return coinCiv.includes('selçuklu') || coinCiv.includes('islam');
+          }
+          if (civId === 'ottoman') {
+            return coinCiv.includes('osmanlı');
+          }
+          const opt = CIVILIZATIONS.find((c) => c.id === civId);
+          return opt ? coinCiv.includes(opt.name.toLowerCase()) : false;
+        });
+        if (!matchesCiv) return false;
+      } else if (selectedCivilization !== 'Tümü') {
+        const sel = selectedCivilization.toLowerCase();
+        const civ = coin.civilization.toLowerCase();
+        const matchesSingleCiv =
+          civ.includes(sel) ||
+          sel.includes(civ) ||
+          (sel.includes('yunan') && (civ.includes('yunan') || civ.includes('fenike') || civ.includes('sicilya'))) ||
+          (sel.includes('islam') && (civ.includes('islam') || civ.includes('sasani') || civ.includes('selçuklu')));
+        if (!matchesSingleCiv) return false;
+      }
+
+      // 4. Tarihsel Çağlar (filters.eras)
+      if (filters.eras.length > 0) {
+        const searchScope = `${coin.period} ${coin.description} ${coin.ruler}`.toLowerCase();
+        const matchesEra = filters.eras.some((eraName) => {
+          const root = eraName.replace('Dönem', '').replace('Çağ', '').trim().toLowerCase();
+          return searchScope.includes(root);
+        });
+        if (!matchesEra) return false;
+      }
+
+      // 5. Darphaneler ve Bölgeler (filters.mints)
+      if (filters.mints && filters.mints.length > 0) {
+        const coinMint = (coin.mint || '').toLowerCase();
+        const matchesMint = filters.mints.some((m) => {
+          const keyword = m.split('(')[0].trim().toLowerCase();
+          return coinMint.includes(keyword) || coin.description.toLowerCase().includes(keyword);
+        });
+        if (!matchesMint) return false;
+      }
+
+      // 6. Kondisyon Derecesi (filters.conditions)
+      if (filters.conditions && filters.conditions.length > 0) {
+        const coinCond = (coin.condition || '').toLowerCase();
+        const matchesCondition = filters.conditions.some((c) => {
+          const code = c.split('/')[0].trim().toLowerCase();
+          return coinCond.includes(code);
+        });
+        if (!matchesCondition) return false;
+      }
+
+      // 7. Ön ve Arka Yüz Görseli Eksiksiz Olanlar
+      if (filters.hasImageBackAndFront) {
+        if (!coin.obverseImage || !coin.reverseImage) return false;
+      }
+
+      // 8. Fiyat Aralığı
+      if (filters.minPrice !== null || filters.maxPrice !== null) {
+        const price = coin.numericPrice ?? parseCoinValue(coin.estimatedValue);
+        if (filters.minPrice !== null && price < filters.minPrice) return false;
+        if (filters.maxPrice !== null && price > filters.maxPrice) return false;
+      }
+
+      return true;
     });
-  }, [searchQuery, selectedCivilization]);
+
+    // 5. Sıralama (filters.sortBy)
+    if (filters.sortBy === 'name') {
+      list = [...list].sort((a, b) => a.title.localeCompare(b.title, 'tr'));
+    } else if (filters.sortBy === 'value_desc') {
+      list = [...list].sort((a, b) => parseCoinValue(b.estimatedValue) - parseCoinValue(a.estimatedValue));
+    } else if (filters.sortBy === 'value_asc') {
+      list = [...list].sort((a, b) => parseCoinValue(a.estimatedValue) - parseCoinValue(b.estimatedValue));
+    }
+
+    return list;
+  }, [searchQuery, filters, selectedCivilization, selectedPreset]);
 
   const handleCoinPress = (id: string) => {
     router.push(`/coin/${id}` as any);
@@ -88,64 +404,145 @@ export default function HomeScreen() {
             </View>
           </View>
 
-          <View style={styles.headerActions}>
-            {/* Sözlük Butonu */}
-            <TouchableOpacity
-              activeOpacity={0.75}
-              onPress={() => router.push('/(tabs)/glossary' as any)}
-              style={[
-                styles.actionBtn,
-                { backgroundColor: colors.surface, borderColor: colors.border },
-              ]}>
-              <Ionicons name="book-outline" size={18} color={colors.primary} />
-            </TouchableOpacity>
+          <View style={styles.headerRightCol}>
+            <View style={styles.headerActions}>
+              {/* Sözlük Butonu */}
+              <TouchableOpacity
+                activeOpacity={0.75}
+                onPress={() => router.push('/(tabs)/glossary' as any)}
+                style={[
+                  styles.actionBtn,
+                  { backgroundColor: colors.surface, borderColor: colors.border },
+                ]}>
+                <Ionicons name="book-outline" size={18} color={colors.primary} />
+              </TouchableOpacity>
 
-            {/* Bildirim Butonu */}
-            <TouchableOpacity
-              activeOpacity={0.75}
+              {/* Bildirim Butonu */}
+              <TouchableOpacity
+                activeOpacity={0.75}
+                style={[
+                  styles.actionBtn,
+                  { backgroundColor: colors.surface, borderColor: colors.border },
+                ]}>
+                <Ionicons name="notifications-outline" size={18} color={colors.textPrimary} />
+                <View style={[styles.notificationDot, { backgroundColor: colors.primary }]} />
+              </TouchableOpacity>
+            </View>
+
+            {/* Sayfanın Sağ Üstünde Toplam Listelenen Eser Sayısı Rozeti */}
+            <View
               style={[
-                styles.actionBtn,
+                styles.topCountBadge,
                 { backgroundColor: colors.surface, borderColor: colors.border },
               ]}>
-              <Ionicons name="notifications-outline" size={18} color={colors.textPrimary} />
-              <View style={[styles.notificationDot, { backgroundColor: colors.primary }]} />
-            </TouchableOpacity>
+              <Ionicons name="layers-outline" size={11} color={colors.primary} />
+              <Text style={[styles.topCountBadgeText, { color: colors.textSecondary }]}>
+                Gösterilen:{' '}
+                <Text style={[styles.topCountBadgeHighlight, { color: colors.primary }]}>
+                  {filteredCoins.length}
+                </Text>{' '}
+                / {MOCK_COINS.length} Eser
+              </Text>
+            </View>
           </View>
         </View>
 
-        {/* Ferah Arama Çubuğu & Tarayıcı İkonu */}
-        <View
-          style={[
-            styles.searchBar,
-            { backgroundColor: colors.surfaceSubtle, borderColor: colors.border },
-          ]}>
-          <Ionicons
-            name="search-outline"
-            size={19}
-            color={colors.primary}
-            style={styles.searchIcon}
-          />
-          <TextInput
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            placeholder="Sikke adı, hükümdar, darphane veya medeniyet..."
-            placeholderTextColor={colors.textMuted}
-            style={[styles.searchInput, { color: colors.textPrimary }]}
-            clearButtonMode="while-editing"
-          />
-          {searchQuery.length > 0 ? (
-            <TouchableOpacity onPress={() => setSearchQuery('')} hitSlop={10}>
-              <Ionicons name="close-circle" size={18} color={colors.textSecondary} />
-            </TouchableOpacity>
-          ) : (
-            <TouchableOpacity
-              onPress={() => router.push('/(tabs)/scan' as any)}
-              style={styles.scanBtn}
-              hitSlop={10}>
-              <Ionicons name="scan-outline" size={19} color={colors.primary} />
-            </TouchableOpacity>
-          )}
+        {/* 2. ARAMA ÇUBUĞU VE FİLTRELE BUTONU SATIRI */}
+        <View style={styles.searchFilterRow}>
+          <View
+            style={[
+              styles.searchBar,
+              { backgroundColor: colors.surfaceSubtle, borderColor: colors.border },
+            ]}>
+            <Ionicons
+              name="search-outline"
+              size={18}
+              color={colors.primary}
+              style={styles.searchIcon}
+            />
+            <TextInput
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              placeholder="Sikke, hükümdar, darphane veya medeniyet..."
+              placeholderTextColor={colors.textMuted}
+              style={[styles.searchInput, { color: colors.textPrimary }]}
+              clearButtonMode="while-editing"
+            />
+            {searchQuery.length > 0 && (
+              <TouchableOpacity onPress={() => setSearchQuery('')} hitSlop={10}>
+                <Ionicons name="close-circle" size={17} color={colors.textSecondary} />
+              </TouchableOpacity>
+            )}
+          </View>
+
+          {/* Filtrele Butonu & Sayaç Rozeti */}
+          <TouchableOpacity
+            activeOpacity={0.8}
+            onPress={() => setFilterModalVisible(true)}
+            style={[
+              styles.filterBtn,
+              activeFilterCount > 0
+                ? { backgroundColor: colors.primary, borderColor: colors.primary }
+                : { backgroundColor: colors.surfaceSubtle, borderColor: colors.border },
+            ]}>
+            <Ionicons
+              name="options-outline"
+              size={19}
+              color={activeFilterCount > 0 ? '#FFFFFF' : colors.primary}
+            />
+            {activeFilterCount > 0 && (
+              <View style={styles.filterBadge}>
+                <Text style={styles.filterBadgeText}>{activeFilterCount}</Text>
+              </View>
+            )}
+          </TouchableOpacity>
         </View>
+
+        {/* 3. AKILLI FİLTRE ROZETLERİ (SMART PRESETS) */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.presetScrollContainer}>
+          {SMART_PRESETS.map((preset) => {
+            const isActive = selectedPreset === preset.id;
+            const isAll = preset.id === 'all';
+
+            return (
+              <TouchableOpacity
+                key={preset.id}
+                activeOpacity={0.8}
+                onPress={() => handlePresetPress(preset.id)}
+                style={[
+                  styles.presetChip,
+                  isActive
+                    ? [styles.presetChipActive, { backgroundColor: colors.primary, borderColor: colors.primary }]
+                    : [styles.presetChipInactive, { backgroundColor: colors.surface, borderColor: colors.border }],
+                ]}>
+                <Text
+                  style={[
+                    styles.presetChipText,
+                    isActive
+                      ? styles.presetChipTextActive
+                      : [styles.presetChipTextInactive, { color: colors.textPrimary }],
+                  ]}>
+                  {preset.label}
+                </Text>
+
+                {isActive && !isAll && (
+                  <TouchableOpacity
+                    hitSlop={{ top: 8, bottom: 8, left: 6, right: 8 }}
+                    onPress={(e) => {
+                      e.stopPropagation();
+                      handleClearPreset();
+                    }}
+                    style={styles.presetCloseBtn}>
+                    <Ionicons name="close" size={11} color="#FFFFFF" />
+                  </TouchableOpacity>
+                )}
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
       </View>
 
       {/* SİKKE LİSTESİ (Ön & Arka Yüz Yan Yana Dairesel Kartlar) */}
@@ -163,7 +560,7 @@ export default function HomeScreen() {
         ListHeaderComponent={
           <>
             {/* 2. GÜNÜN / HAFTANIN NADİR ESERİ (FEATURED HERO BANNER) */}
-            {searchQuery === '' && selectedCivilization === 'Tümü' && (
+            {searchQuery === '' && selectedCivilization === 'Tümü' && activeFilterCount === 0 && (
               <TouchableOpacity
                 activeOpacity={0.92}
                 onPress={() => handleCoinPress(featuredCoin.id)}
@@ -335,7 +732,7 @@ export default function HomeScreen() {
               {/* Medeniyet Listesi */}
               {CATEGORIES.map((civ) => {
                 const isActive =
-                  selectedCivilization === civ.name || selectedCivilization === civ.id;
+                  selectedCivilization === civ.name || selectedCivilization === civ.shortName;
                 return (
                   <TouchableOpacity
                     key={civ.id}
@@ -409,29 +806,38 @@ export default function HomeScreen() {
           </>
         }
         ListEmptyComponent={
-          <View style={styles.emptyContainer}>
-            <Ionicons name="search-outline" size={44} color={colors.primary} />
+          <View style={styles.emptyCard}>
+            <View style={styles.emptyIconCircle}>
+              <Ionicons name="search-outline" size={32} color={colors.primary} />
+            </View>
             <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>
-              Eşleşen Eser Bulunamadı
+              Kriterlere Uygun Tarihi Eser Bulunamadı
             </Text>
             <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>
-              Seçilen medeniyete veya arama terimine uygun sikke arşivi bulunamadı.
+              Belirlediğiniz arama terimi veya filtre kombinasyonuna uyan sikke bulunamadı. Lütfen filtrelerinizi gevşetin veya sıfırlayın.
             </Text>
             <TouchableOpacity
-              onPress={() => {
-                setSearchQuery('');
-                setSelectedCivilization('Tümü');
-              }}
+              activeOpacity={0.8}
+              onPress={handleResetAllFilters}
               style={[
-                styles.resetBtn,
-                { borderColor: colors.primary, backgroundColor: colors.primaryLight },
+                styles.emptyResetBtn,
+                { backgroundColor: colors.primary },
               ]}>
-              <Text style={[styles.resetBtnText, { color: colors.primary }]}>
-                Filtreleri Sıfırla
-              </Text>
+              <Ionicons name="refresh-outline" size={15} color="#FFFFFF" />
+              <Text style={styles.emptyResetBtnText}>Filtreleri Sıfırla</Text>
             </TouchableOpacity>
           </View>
         }
+      />
+
+      {/* 6. GELİŞMİŞ FİLTRELEME MODAL BİLEŞENİ */}
+      <FilterModal
+        visible={filterModalVisible}
+        onClose={() => setFilterModalVisible(false)}
+        currentFilters={filters}
+        onApplyFilters={(newFilters) => {
+          setFilters(newFilters);
+        }}
       />
     </View>
   );
@@ -484,6 +890,31 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
   },
+  headerRightCol: {
+    alignItems: 'flex-end',
+    gap: 5,
+  },
+  topCountBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 3.5,
+    borderRadius: BorderRadius.full,
+    borderWidth: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  topCountBadgeText: {
+    fontSize: 10.5,
+    fontWeight: '600',
+  },
+  topCountBadgeHighlight: {
+    fontWeight: '800',
+  },
   actionBtn: {
     width: 38,
     height: 38,
@@ -506,14 +937,21 @@ const styles = StyleSheet.create({
     height: 6,
     borderRadius: 3,
   },
+  // Arama ve Filtreleme Satırı
+  searchFilterRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    marginBottom: Spacing.xs + 2,
+  },
   searchBar: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: Spacing.md,
     paddingVertical: Platform.select({ ios: Spacing.sm, default: 8 }),
     borderRadius: BorderRadius.md,
     borderWidth: 1,
-    marginBottom: Spacing.xs,
   },
   searchIcon: {
     marginRight: Spacing.sm,
@@ -522,6 +960,93 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 13,
     paddingVertical: 2,
+  },
+  filterBtn: {
+    width: 42,
+    height: 42,
+    borderRadius: BorderRadius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    position: 'relative',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  filterBadge: {
+    position: 'absolute',
+    top: -5,
+    right: -5,
+    backgroundColor: '#E03131', // Canlı kırmızı dikkat rozeti
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+    borderWidth: 1.5,
+    borderColor: '#FFFFFF',
+    shadowColor: '#E03131',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.4,
+    shadowRadius: 3,
+    elevation: 3,
+  },
+  filterBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: '800',
+  },
+
+  // Akıllı Filtre Rozetleri (Smart Presets)
+  presetScrollContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 5,
+    paddingRight: Spacing.md,
+  },
+  presetChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 6.5,
+    borderRadius: BorderRadius.full,
+    borderWidth: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  presetChipActive: {
+    shadowColor: '#9E7B3B',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  presetChipInactive: {},
+  presetChipText: {
+    fontSize: 11.5,
+  },
+  presetChipTextActive: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+  },
+  presetChipTextInactive: {
+    fontWeight: '600',
+  },
+  presetCloseBtn: {
+    marginLeft: 5,
+    width: 15,
+    height: 15,
+    borderRadius: 7.5,
+    backgroundColor: 'rgba(0, 0, 0, 0.25)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   scanBtn: {
     padding: 2,
@@ -745,33 +1270,60 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '700',
   },
-  emptyContainer: {
+  emptyCard: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: Spacing.xxl,
+    backgroundColor: '#FFFFFF',
+    borderRadius: BorderRadius.lg,
+    paddingVertical: Spacing.xl + 4,
     paddingHorizontal: Spacing.lg,
+    marginVertical: Spacing.md,
+    borderWidth: 1,
+    borderColor: '#E9ECEF',
+    shadowColor: '#1A1D20',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  emptyIconCircle: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: '#F5EEDB',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: Spacing.sm + 4,
   },
   emptyTitle: {
     fontSize: 16,
     fontWeight: '700',
-    marginTop: Spacing.sm,
     textAlign: 'center',
   },
   emptySubtitle: {
-    fontSize: 12,
+    fontSize: 12.5,
     textAlign: 'center',
     lineHeight: 18,
-    marginTop: 4,
-    marginBottom: Spacing.md,
+    marginTop: 6,
+    marginBottom: Spacing.lg,
+    maxWidth: 290,
   },
-  resetBtn: {
-    paddingHorizontal: Spacing.md,
-    paddingVertical: 6,
-    borderRadius: BorderRadius.sm,
-    borderWidth: 1,
+  emptyResetBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: 10,
+    borderRadius: BorderRadius.md,
+    shadowColor: '#9E7B3B',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 2,
   },
-  resetBtnText: {
-    fontSize: 12,
+  emptyResetBtnText: {
+    fontSize: 13,
     fontWeight: '700',
+    color: '#FFFFFF',
   },
 });

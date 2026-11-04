@@ -5,6 +5,7 @@ import {
   Dimensions,
   Easing,
   Modal,
+  PanResponder,
   Platform,
   ScrollView,
   StatusBar as RNStatusBar,
@@ -19,7 +20,7 @@ import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as ImagePicker from 'expo-image-picker';
-import Svg, { Circle, Defs, Line, Mask, Path, Rect } from 'react-native-svg';
+import Svg, { Circle, Line, Path } from 'react-native-svg';
 
 import { BorderRadius, BottomTabInset, Spacing } from '@/constants/theme';
 import { CoinItem, MOCK_COINS, registerScannedCoin } from '@/data/mockData';
@@ -30,6 +31,12 @@ const VIEWFINDER_CX = Math.round(SCREEN_WIDTH / 2);
 const VIEWFINDER_CY = Math.round(SCREEN_HEIGHT * 0.42); // Üst-orta ideal vizör Y konumu
 const CORNER_OFFSET = Math.round(VIEWFINDER_SIZE / 2) + 14;
 const ANDROID_TOP_SPACING = (RNStatusBar.currentHeight ?? 24) + 8;
+const COMPARE_SIZE = Math.min(SCREEN_WIDTH - 48, 310);
+
+function parseCoinValue(val: string): number {
+  const num = parseInt(val.replace(/[^0-9]/g, ''), 10);
+  return isNaN(num) ? 0 : num;
+}
 
 // Harici veya yeni taranan sikkeler için nümismatik arketip profilleri
 const EXTERNAL_ARCHETYPES: Omit<CoinItem, 'id' | 'obverseImage' | 'reverseImage'>[] = [
@@ -137,6 +144,15 @@ export default function ScanScreen() {
   const [flashEnabled, setFlashEnabled] = useState(false);
   const [capturedPhotoUri, setCapturedPhotoUri] = useState<string | null>(null);
 
+  // Çift Yüzlü Akıllı Çekim Döngüsü Durumları (Avers & Revers)
+  const [capturedObverseUri, setCapturedObverseUri] = useState<string | null>(null);
+  const [capturedReverseUri, setCapturedReverseUri] = useState<string | null>(null);
+
+  // Kıyaslama Perdesi (Compare Overlay) Durumları
+  const [showCompareModal, setShowCompareModal] = useState(false);
+  const [compareSide, setCompareSide] = useState<'obverse' | 'reverse'>('obverse');
+  const [sliderPos, setSliderPos] = useState<number>(Math.round(COMPARE_SIZE / 2));
+
   // Analiz ve Eşleşme Durumları
   const [isScanningActive, setIsScanningActive] = useState(false);
   const [analysisStep, setAnalysisStep] = useState<string>('Görsel Analiz Ediliyor...');
@@ -154,6 +170,53 @@ export default function ScanScreen() {
   const [selectedArchetypeIndex, setSelectedArchetypeIndex] = useState<number>(0);
   const [showResultModal, setShowResultModal] = useState(false);
   const [showSamplePicker, setShowSamplePicker] = useState(false);
+
+  // Uluslararası Nümizmatik Derecelendirme (NGC Ancients / PCGS) Metrikleri
+  const conditionGradeText = useMemo(() => {
+    const cond = (detectedCoin.condition || '').toUpperCase();
+    if (cond.includes('FDC') || cond.includes('MS')) {
+      return 'MS / FDC (Mint State - %95+ Rölyef Korunumu)';
+    }
+    if (cond.includes('EF') || cond.includes('XF')) {
+      return 'EF / XF (Extremely Fine - %85 Rölyef Korunumu)';
+    }
+    if (cond.includes('FINE') && !cond.includes('VERY')) {
+      return 'Fine (Orta - %60 Rölyef Korunumu)';
+    }
+    if (cond.includes('FAIR') || cond.includes('POOR')) {
+      return 'Fair / Poor (Aşınmış - %40 Korunum)';
+    }
+    return 'VF (Very Fine - %75 Rölyef Korunumu)';
+  }, [detectedCoin.condition]);
+
+  const estimatedHammerRange = useMemo(() => {
+    const price = detectedCoin.numericPrice ?? parseCoinValue(detectedCoin.estimatedValue);
+    if (price <= 0) return '$3,200 - $4,100';
+    const minVal = Math.round((price * 0.88) / 10) * 10;
+    const maxVal = Math.round((price * 1.18) / 10) * 10;
+    return `$${minVal.toLocaleString('en-US')} - $${maxVal.toLocaleString('en-US')}`;
+  }, [detectedCoin]);
+
+  // Sürüklenebilir Perde (Before / After Slider) PanResponder
+  const panResponder = useMemo(
+    () =>
+      PanResponder.create({
+        onStartShouldSetPanResponder: () => true,
+        onMoveShouldSetPanResponder: () => true,
+        onPanResponderGrant: (evt) => {
+          const locX = evt.nativeEvent.locationX;
+          if (locX >= 15 && locX <= COMPARE_SIZE - 15) {
+            setSliderPos(locX);
+          }
+        },
+        onPanResponderMove: (evt) => {
+          const locX = evt.nativeEvent.locationX;
+          const clamped = Math.max(15, Math.min(COMPARE_SIZE - 15, locX));
+          setSliderPos(clamped);
+        },
+      }),
+    []
+  );
 
   // Dinamik Ekran Düzeni & Vizör Geometrisi
   const [layout, setLayout] = useState({
@@ -173,6 +236,9 @@ export default function ScanScreen() {
   const cornerTR = `M ${cx + cornerDist - cornerArm} ${cy - cornerDist} L ${cx + cornerDist} ${cy - cornerDist} L ${cx + cornerDist} ${cy - cornerDist + cornerArm}`;
   const cornerBL = `M ${cx - cornerDist} ${cy + cornerDist - cornerArm} L ${cx - cornerDist} ${cy + cornerDist} L ${cx - cornerDist + cornerArm} ${cy + cornerDist}`;
   const cornerBR = `M ${cx + cornerDist - cornerArm} ${cy + cornerDist} L ${cx + cornerDist} ${cy + cornerDist} L ${cx + cornerDist} ${cy + cornerDist - cornerArm}`;
+
+  // Karartma vinyeti ve dairesel şeffaf pencere yolu (evenodd kuralı - Android Mask kayma hatasını kesinlikle önler)
+  const vignetteCutoutPath = `M 0 0 H ${layout.width} V ${layout.height} H 0 Z M ${cx} ${cy - r} A ${r} ${r} 0 0 0 ${cx} ${cy + r} A ${r} ${r} 0 0 0 ${cx} ${cy - r} Z`;
 
   // Animasyon Değerleri
   const pulseAnim = useRef(new Animated.Value(1)).current;
@@ -247,10 +313,17 @@ export default function ScanScreen() {
   });
 
   /**
-   * Çekilen veya seçilen gerçek görseli analiz eden ve doğru kimliği oluşturan motor.
+   * Çekilen veya seçilen görseli analiz eden ve NGC standardında kimliği oluşturan motor.
    */
-  const processImageAndIdentify = (photoUri: string, initialArchetypeIdx = 0) => {
-    setCapturedPhotoUri(photoUri);
+  const processImageAndIdentify = (
+    obverseUri: string,
+    reverseUri?: string,
+    initialArchetypeIdx = 0
+  ) => {
+    const finalReverseUri = reverseUri || obverseUri;
+    setCapturedPhotoUri(obverseUri);
+    setCapturedObverseUri(obverseUri);
+    setCapturedReverseUri(finalReverseUri);
     setIsScanningActive(true);
     setAnalysisProgress(15);
     setShowResultModal(false);
@@ -262,13 +335,13 @@ export default function ScanScreen() {
     const newCoinRecord: CoinItem = {
       ...archetype,
       id: generatedId,
-      obverseImage: photoUri,
-      reverseImage: photoUri,
+      obverseImage: obverseUri,
+      reverseImage: finalReverseUri,
       isScanned: true,
     };
 
     setDetectedCoin(newCoinRecord);
-    setMatchScore(Number((98.5 + Math.random() * 1.3).toFixed(1)));
+    setMatchScore(Number((98.6 + Math.random() * 1.2).toFixed(1)));
 
     Animated.spring(modalScaleAnim, {
       toValue: 1,
@@ -277,15 +350,15 @@ export default function ScanScreen() {
       useNativeDriver: true,
     }).start();
 
-    setAnalysisStep('Maden Spektrumu & Metal Ayrıştırılıyor...');
+    setAnalysisStep('Çift Yüzlü Kalıp & Maden Spektrumu İnceleniyor...');
     const t1 = setTimeout(() => {
       setAnalysisProgress(55);
-      setAnalysisStep('Lejant Metni & Tipoloji Doğrulanıyor...');
+      setAnalysisStep('Avers / Revers Lejant & NGC Tipoloji Doğrulaması...');
     }, 700);
 
     const t2 = setTimeout(() => {
       setAnalysisProgress(92);
-      setAnalysisStep('Nümismatik Arşiv Veritabanında Eşleşti!');
+      setAnalysisStep('Nümismatik Arşiv Veritabanında Doğrulandı!');
     }, 1500);
 
     const t3 = setTimeout(() => {
@@ -300,15 +373,46 @@ export default function ScanScreen() {
     };
   };
 
+  /**
+   * Çift Yüzlü Akıllı Çekim Döngüsü (Avers + Revers) Yönlendiricisi
+   */
+  const handlePhotoCapturedOrSelected = (photoUri: string) => {
+    if (selectedSide === 'obverse') {
+      // 1. Aşama: Ön Yüz (Avers) Çekildi -> Sakla ve Arka Yüze yönlendir
+      setCapturedObverseUri(photoUri);
+      setCapturedPhotoUri(photoUri);
+      setSelectedSide('reverse');
+    } else {
+      // 2. Aşama: Arka Yüz (Revers) Çekildi -> Her iki yüz de tamamlandı, analize başla!
+      const obverseToUse = capturedObverseUri || photoUri;
+      setCapturedReverseUri(photoUri);
+      processImageAndIdentify(obverseToUse, photoUri, 0);
+    }
+  };
+
+  const handleDirectSingleSideAnalysis = () => {
+    const photoToUse = capturedObverseUri || capturedPhotoUri || MOCK_COINS[0].obverseImage;
+    processImageAndIdentify(photoToUse, photoToUse, 0);
+  };
+
+  const handleResetCapture = () => {
+    setCapturedObverseUri(null);
+    setCapturedReverseUri(null);
+    setCapturedPhotoUri(null);
+    setSelectedSide('obverse');
+  };
+
   const handleSelectArchetype = (index: number) => {
     if (!capturedPhotoUri) return;
     setSelectedArchetypeIndex(index);
     const archetype = EXTERNAL_ARCHETYPES[index];
+    const obverseToUse = capturedObverseUri || capturedPhotoUri;
+    const reverseToUse = capturedReverseUri || capturedPhotoUri;
     const updatedCoin: CoinItem = {
       ...archetype,
       id: detectedCoin.id,
-      obverseImage: capturedPhotoUri,
-      reverseImage: capturedPhotoUri,
+      obverseImage: obverseToUse,
+      reverseImage: reverseToUse,
       isScanned: true,
     };
     setDetectedCoin(updatedCoin);
@@ -337,7 +441,7 @@ export default function ScanScreen() {
         });
 
         if (photo?.uri) {
-          processImageAndIdentify(photo.uri, 0);
+          handlePhotoCapturedOrSelected(photo.uri);
           return;
         }
       }
@@ -345,7 +449,11 @@ export default function ScanScreen() {
       // Donanım hatası durumu
     }
 
-    processImageAndIdentify(MOCK_COINS[0].obverseImage, 0);
+    const fallbackPhoto =
+      selectedSide === 'obverse'
+        ? MOCK_COINS[0].obverseImage
+        : MOCK_COINS[0].reverseImage;
+    handlePhotoCapturedOrSelected(fallbackPhoto);
   };
 
   const handlePickFromGallery = async () => {
@@ -359,7 +467,7 @@ export default function ScanScreen() {
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
         const selectedUri = result.assets[0].uri;
-        processImageAndIdentify(selectedUri, 0);
+        handlePhotoCapturedOrSelected(selectedUri);
       }
     } catch {
       // Galeri izni iptal durumu
@@ -375,6 +483,8 @@ export default function ScanScreen() {
   const handleTestWithSpecificCoin = (coin: CoinItem) => {
     setShowSamplePicker(false);
     setCapturedPhotoUri(coin.obverseImage);
+    setCapturedObverseUri(coin.obverseImage);
+    setCapturedReverseUri(coin.reverseImage);
     setDetectedCoin({
       ...coin,
       isScanned: false,
@@ -384,7 +494,7 @@ export default function ScanScreen() {
     setAnalysisProgress(15);
     setShowResultModal(false);
 
-    setAnalysisStep('Katalog Eseri Taranıyor...');
+    setAnalysisStep('NGC Ancients Arşivi Taranıyor...');
     setTimeout(() => {
       setAnalysisProgress(95);
       setAnalysisStep('Arşiv Kaydı %100 Doğrulandı!');
@@ -458,26 +568,18 @@ export default function ScanScreen() {
         style={StyleSheet.absoluteFill}
       />
 
-      {/* 2. OPTİK VİZÖR VE KARARTMA MASKESİ (TEK VE BÜTÜNLEŞİK SVG - HİZALAMA HATASI İMKANSIZ) */}
+      {/* 2. OPTİK VİZÖR VE KARARTMA VİNYETİ (BİREBİR AYNI KOORDİNATLAR - EVENODD İLE HİZALAMA KUSURSUZ) */}
       <Svg
-        width="100%"
-        height="100%"
+        width={layout.width}
+        height={layout.height}
+        viewBox={`0 0 ${layout.width} ${layout.height}`}
         style={StyleSheet.absoluteFill}
         pointerEvents="none">
-        <Defs>
-          <Mask id="viewfinderMask">
-            <Rect width="100%" height="100%" fill="white" />
-            {/* Ortadaki şeffaf dairesel kamera penceresi */}
-            <Circle cx={cx} cy={cy} r={r} fill="black" />
-          </Mask>
-        </Defs>
-
-        {/* Karartma Vinyeti */}
-        <Rect
-          width="100%"
-          height="100%"
+        {/* Karartma Vinyeti & Dairesel Şeffaf Kamera Penceresi */}
+        <Path
+          d={vignetteCutoutPath}
           fill="rgba(10, 13, 17, 0.72)"
-          mask="url(#viewfinderMask)"
+          fillRule="evenodd"
         />
 
         {/* Altın Kesikli Dairesel Vizör Halkası - Şeffaf pencerenin BİREBİR kenarı */}
@@ -620,18 +722,68 @@ export default function ScanScreen() {
 
       {/* 5. DİNAMİK TALİMAT ROZETİ */}
       <View style={styles.instructionContainer} pointerEvents="none">
-        <View style={styles.instructionPill}>
-          <Ionicons name="scan-circle" size={17} color="#D4AF37" />
-          <Text style={styles.instructionTitle}>
-            {selectedSide === 'obverse'
+        <View style={[styles.instructionPill, capturedObverseUri && styles.instructionPillAlert]}>
+          <Ionicons
+            name={capturedObverseUri ? 'alert-circle' : 'scan-circle'}
+            size={17}
+            color={capturedObverseUri ? '#F59E0B' : '#D4AF37'}
+          />
+          <Text style={[styles.instructionTitle, capturedObverseUri && { color: '#FDE68A' }]}>
+            {capturedObverseUri && selectedSide === 'reverse'
+              ? 'Şimdi Sikkenin Arka Yüzünü (Revers) Hizalayın'
+              : selectedSide === 'obverse'
               ? 'Sikkenin Ön Yüzünü Çerçevenin İçine Hizalayın'
               : 'Sikkenin Arka Yüzünü Çerçevenin İçine Hizalayın'}
           </Text>
         </View>
         <Text style={styles.instructionSubtext}>
-          Doğal veya homojen ışık altında sikkeyi dairesel vizöre oturtun
+          {capturedObverseUri && selectedSide === 'reverse'
+            ? 'Ön yüz kaydedildi. Çift yönlü nümizmatik analiz için arka yüzü çekin'
+            : 'Doğal veya homojen ışık altında sikkeyi dairesel vizöre oturtun'}
         </Text>
       </View>
+
+      {/* ÇİFT YÜZLÜ AKILLI ÇEKİM: ÖN YÜZ TAMAMLANDI BİLDİRİM KARTI */}
+      {capturedObverseUri && !isScanningActive && !showResultModal && (
+        <View style={styles.obversePreviewFloatCard}>
+          <View style={styles.obverseMiniThumbBox}>
+            <Image
+              source={{ uri: capturedObverseUri }}
+              style={styles.obverseMiniThumb}
+              contentFit="cover"
+            />
+            <View style={styles.miniCheckBadge}>
+              <Ionicons name="checkmark" size={10} color="#FFFFFF" />
+            </View>
+          </View>
+
+          <View style={{ flex: 1, paddingRight: 4 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+              <Text style={styles.obverseSavedTitle}>Ön Yüz (Avers) Kaydedildi</Text>
+            </View>
+            <Text style={styles.obverseSavedSub}>
+              Şimdi arka yüzü çekin veya doğrudan analiz edin
+            </Text>
+          </View>
+
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <TouchableOpacity
+              activeOpacity={0.8}
+              onPress={handleDirectSingleSideAnalysis}
+              style={styles.directAnalyzePillBtn}>
+              <Ionicons name="sparkles" size={12} color="#FFFFFF" />
+              <Text style={styles.directAnalyzePillText}>Tek Yüzle Tara</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={handleResetCapture}
+              style={styles.resetCapturePillBtn}>
+              <Ionicons name="close" size={15} color="#94A3B8" />
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
 
       {/* 6. ALT KONTROLLER: ÖN/ARKA YÜZ GEÇİŞİ, DEKLANŞÖR & HIZLI TEST */}
       <View style={styles.bottomControls}>
@@ -805,122 +957,341 @@ export default function ScanScreen() {
               </TouchableOpacity>
             </View>
 
-            <View style={styles.comparisonRow}>
-              <View style={styles.comparisonCol}>
-                <View style={styles.thumbWrapper}>
-                  {capturedPhotoUri ? (
-                    <Image
-                      source={{ uri: capturedPhotoUri }}
-                      style={styles.comparisonImg}
-                      contentFit="cover"
-                    />
-                  ) : (
-                    <View style={styles.comparisonImgFallback}>
-                      <Ionicons name="camera" size={24} color="#94A3B8" />
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: Spacing.md }}>
+              {/* Karşılaştırma Alanı (Tıklanınca Tam Ekran Perde Kıyaslama Açar) */}
+              <TouchableOpacity
+                activeOpacity={0.88}
+                onPress={() => {
+                  setCompareSide('obverse');
+                  setSliderPos(Math.round(COMPARE_SIZE / 2));
+                  setShowCompareModal(true);
+                }}
+                style={styles.comparisonInteractiveWrapper}>
+                <View style={styles.comparisonRow}>
+                  <View style={styles.comparisonCol}>
+                    <View style={styles.thumbWrapper}>
+                      {capturedPhotoUri ? (
+                        <Image
+                          source={{ uri: capturedPhotoUri }}
+                          style={styles.comparisonImg}
+                          contentFit="cover"
+                        />
+                      ) : (
+                        <View style={styles.comparisonImgFallback}>
+                          <Ionicons name="camera" size={24} color="#94A3B8" />
+                        </View>
+                      )}
                     </View>
-                  )}
-                </View>
-                <Text style={styles.comparisonLabel}>SİZİN ÇEKİMİNİZ</Text>
-              </View>
+                    <Text style={styles.comparisonLabel}>SİZİN ÇEKİMİNİZ</Text>
+                  </View>
 
-              <View style={styles.matchArrowCircle}>
-                <Ionicons name="swap-horizontal" size={18} color="#D4AF37" />
-              </View>
+                  <View style={styles.matchArrowCircle}>
+                    <Ionicons name="swap-horizontal" size={18} color="#D4AF37" />
+                  </View>
 
-              <View style={styles.comparisonCol}>
-                <View style={[styles.thumbWrapper, { borderColor: '#D4AF37' }]}>
-                  <Image
-                    source={{ uri: capturedPhotoUri || detectedCoin.obverseImage }}
-                    style={styles.comparisonImg}
-                    contentFit="cover"
-                  />
-                </View>
-                <Text style={[styles.comparisonLabel, { color: '#D4AF37' }]}>
-                  TESPİT EDİLEN ESER
-                </Text>
-              </View>
-            </View>
-
-            <View style={styles.detectedInfoBox}>
-              <Text style={styles.detectedCiv}>
-                {detectedCoin.civilization.toUpperCase()}
-              </Text>
-              <Text style={styles.detectedTitle}>{detectedCoin.title}</Text>
-              <Text style={styles.detectedRuler}>
-                {detectedCoin.ruler} • {detectedCoin.period}
-              </Text>
-
-              <View style={styles.pillBadgeRow}>
-                <View style={[styles.specPill, styles.specPillHighlight]}>
-                  <Text style={[styles.specPillText, { color: '#D4AF37', fontWeight: '700' }]}>
-                    {detectedCoin.material}
-                  </Text>
-                </View>
-                <View style={styles.specPill}>
-                  <Text style={styles.specPillText}>{detectedCoin.weight}</Text>
-                </View>
-                <View style={styles.specPill}>
-                  <Text style={styles.specPillText}>{detectedCoin.rarity}</Text>
-                </View>
-                <View style={[styles.specPill, styles.specPillPrice]}>
-                  <Text style={styles.specPillPriceText}>
-                    {detectedCoin.estimatedValue}
-                  </Text>
-                </View>
-              </View>
-            </View>
-
-            <View style={styles.archetypeSelectContainer}>
-              <Text style={styles.archetypeSelectLabel}>
-                Tespit Edilen Sikke Türü (Tıklayarak Değiştir):
-              </Text>
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={{ gap: 8, paddingBottom: 4 }}>
-                {EXTERNAL_ARCHETYPES.map((arch, index) => {
-                  const isSelected = selectedArchetypeIndex === index;
-                  return (
-                    <TouchableOpacity
-                      key={arch.title}
-                      activeOpacity={0.8}
-                      onPress={() => handleSelectArchetype(index)}
-                      style={[
-                        styles.archetypeChip,
-                        isSelected && styles.archetypeChipActive,
-                      ]}>
-                      <Ionicons
-                        name={arch.material.includes('Altın') ? 'ribbon' : 'ellipse'}
-                        size={12}
-                        color={isSelected ? '#FFFFFF' : '#D4AF37'}
+                  <View style={styles.comparisonCol}>
+                    <View style={[styles.thumbWrapper, { borderColor: '#D4AF37' }]}>
+                      <Image
+                        source={{ uri: detectedCoin.obverseImage }}
+                        style={styles.comparisonImg}
+                        contentFit="cover"
                       />
-                      <Text
-                        style={[
-                          styles.archetypeChipText,
-                          isSelected && styles.archetypeChipTextActive,
-                        ]}>
-                        {arch.title.split(' ')[0]} {arch.title.split(' ')[1]} ({arch.material.split(' ')[0]})
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </ScrollView>
-            </View>
+                    </View>
+                    <Text style={[styles.comparisonLabel, { color: '#D4AF37' }]}>
+                      TESPİT EDİLEN ESER
+                    </Text>
+                  </View>
+                </View>
 
-            <TouchableOpacity
-              activeOpacity={0.88}
-              onPress={handleConfirmAndNavigate}
-              style={styles.confirmAndOpenBtn}>
-              <Text style={styles.confirmAndOpenText}>
-                Eserin Tam Nümismatik Dosyasını Aç
-              </Text>
-              <Ionicons name="arrow-forward" size={18} color="#FFFFFF" />
-            </TouchableOpacity>
+                {/* Minik Kıyaslama İpucu Rozeti */}
+                <View style={styles.compareHintBadge}>
+                  <Ionicons name="scan" size={12} color="#D4AF37" />
+                  <Text style={styles.compareHintText}>
+                    Dokunun: Perde Kıyaslama Aracını Aç (Piksel Piksel İncele) ➜
+                  </Text>
+                </View>
+              </TouchableOpacity>
+
+              {/* 2. ÇOK BOYUTLU NÜMİZMATİK AI ANALİZ KARTI (NGC ANCIENTS / PCGS METRİKLERİ) */}
+              <View style={styles.ngcGradingContainer}>
+                <View style={styles.ngcHeaderRow}>
+                  <View style={styles.ngcTag}>
+                    <Ionicons name="ribbon" size={12} color="#D4AF37" />
+                    <Text style={styles.ngcTagText}>NGC / PCGS DÜNYA STANDARDI</Text>
+                  </View>
+                  <Text style={styles.ngcSubText}>Yapay Zeka Spektrometresi</Text>
+                </View>
+
+                <View style={styles.metricCardsGrid}>
+                  {/* a) Tahmini Kondisyon Notu */}
+                  <View style={styles.metricCard}>
+                    <View style={[styles.metricIconBox, { backgroundColor: 'rgba(212, 175, 55, 0.15)' }]}>
+                      <Ionicons name="shield-checkmark" size={15} color="#D4AF37" />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.metricCardLabel}>TAHMİNİ KONDİSYON NOTU</Text>
+                      <Text style={styles.metricCardValue}>{conditionGradeText}</Text>
+                    </View>
+                  </View>
+
+                  {/* b) Stilistik Doğruluk */}
+                  <View style={styles.metricCard}>
+                    <View style={[styles.metricIconBox, { backgroundColor: 'rgba(16, 185, 129, 0.15)' }]}>
+                      <Ionicons name="checkmark-done" size={15} color="#10B981" />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.metricCardLabel}>STİLİSTİK DOĞRULUK</Text>
+                      <Text style={[styles.metricCardValue, { color: '#10B981' }]}>
+                        %{Math.min(99, Math.round(matchScore))} Darphane Uyumlu
+                      </Text>
+                    </View>
+                  </View>
+
+                  {/* c) Tahmini Değer Aralığı */}
+                  <View style={styles.metricCard}>
+                    <View style={[styles.metricIconBox, { backgroundColor: 'rgba(245, 158, 11, 0.15)' }]}>
+                      <Ionicons name="pricetag" size={15} color="#F59E0B" />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.metricCardLabel}>TAHMİNİ DEĞER ARALIĞI (MÜZAYEDE ÇEKİÇ)</Text>
+                      <Text style={[styles.metricCardValue, { color: '#F59E0B' }]}>
+                        {estimatedHammerRange}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+              </View>
+
+              <View style={styles.detectedInfoBox}>
+                <Text style={styles.detectedCiv}>
+                  {detectedCoin.civilization.toUpperCase()}
+                </Text>
+                <Text style={styles.detectedTitle}>{detectedCoin.title}</Text>
+                <Text style={styles.detectedRuler}>
+                  {detectedCoin.ruler} • {detectedCoin.period}
+                </Text>
+
+                <View style={styles.pillBadgeRow}>
+                  <View style={[styles.specPill, styles.specPillHighlight]}>
+                    <Text style={[styles.specPillText, { color: '#D4AF37', fontWeight: '700' }]}>
+                      {detectedCoin.material}
+                    </Text>
+                  </View>
+                  <View style={styles.specPill}>
+                    <Text style={styles.specPillText}>{detectedCoin.weight}</Text>
+                  </View>
+                  <View style={styles.specPill}>
+                    <Text style={styles.specPillText}>{detectedCoin.rarity}</Text>
+                  </View>
+                  <View style={[styles.specPill, styles.specPillPrice]}>
+                    <Text style={styles.specPillPriceText}>
+                      {detectedCoin.estimatedValue}
+                    </Text>
+                  </View>
+                </View>
+              </View>
+
+              <View style={styles.archetypeSelectContainer}>
+                <Text style={styles.archetypeSelectLabel}>
+                  Tespit Edilen Sikke Türü (Tıklayarak Değiştir):
+                </Text>
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={{ gap: 8, paddingBottom: 4 }}>
+                  {EXTERNAL_ARCHETYPES.map((arch, index) => {
+                    const isSelected = selectedArchetypeIndex === index;
+                    return (
+                      <TouchableOpacity
+                        key={arch.title}
+                        activeOpacity={0.8}
+                        onPress={() => handleSelectArchetype(index)}
+                        style={[
+                          styles.archetypeChip,
+                          isSelected && styles.archetypeChipActive,
+                        ]}>
+                        <Ionicons
+                          name={arch.material.includes('Altın') ? 'ribbon' : 'ellipse'}
+                          size={12}
+                          color={isSelected ? '#FFFFFF' : '#D4AF37'}
+                        />
+                        <Text
+                          style={[
+                            styles.archetypeChipText,
+                            isSelected && styles.archetypeChipTextActive,
+                          ]}>
+                          {arch.title.split(' ')[0]} {arch.title.split(' ')[1]} ({arch.material.split(' ')[0]})
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </ScrollView>
+              </View>
+
+              <TouchableOpacity
+                activeOpacity={0.88}
+                onPress={handleConfirmAndNavigate}
+                style={styles.confirmAndOpenBtn}>
+                <Text style={styles.confirmAndOpenText}>
+                  Eserin Tam Nümismatik Dosyasını Aç
+                </Text>
+                <Ionicons name="arrow-forward" size={18} color="#FFFFFF" />
+              </TouchableOpacity>
+            </ScrollView>
           </View>
         </View>
       </Modal>
 
-      {/* 9. KATALOG SEÇİM MODALI */}
+      {/* 9. ÜST ÜSTE BİNDİRME & DETAY KIYASLAMA ARACI (COMPARE OVERLAY MODAL) */}
+      <Modal
+        visible={showCompareModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowCompareModal(false)}
+        statusBarTranslucent>
+        <View style={styles.compareModalBackdrop}>
+          <View style={styles.compareModalCard}>
+            {/* Modal Üst Bar */}
+            <View style={styles.compareHeader}>
+              <View style={{ flex: 1, paddingRight: 8 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <Ionicons name="git-compare-outline" size={18} color="#D4AF37" />
+                  <Text style={styles.compareTitle}>Nümizmatik Perde Kıyaslama</Text>
+                </View>
+                <Text style={styles.compareSubtitle}>
+                  Kendi çekiminiz ile müze arşivini piksel piksel karşılaştırın
+                </Text>
+              </View>
+
+              <TouchableOpacity
+                onPress={() => setShowCompareModal(false)}
+                style={styles.pickerCloseBtn}>
+                <Ionicons name="close" size={20} color="#FFFFFF" />
+              </TouchableOpacity>
+            </View>
+
+            {/* Ön Yüz / Arka Yüz Geçiş Hapı */}
+            <View style={styles.compareSideToggleRow}>
+              <TouchableOpacity
+                onPress={() => setCompareSide('obverse')}
+                style={[
+                  styles.compareSideBtn,
+                  compareSide === 'obverse' && styles.compareSideBtnActive,
+                ]}>
+                <Ionicons
+                  name={compareSide === 'obverse' ? 'radio-button-on' : 'radio-button-off'}
+                  size={13}
+                  color={compareSide === 'obverse' ? '#FFFFFF' : '#94A3B8'}
+                />
+                <Text
+                  style={[
+                    styles.compareSideBtnText,
+                    compareSide === 'obverse' && styles.compareSideBtnTextActive,
+                  ]}>
+                  Ön Yüz (Avers)
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={() => setCompareSide('reverse')}
+                style={[
+                  styles.compareSideBtn,
+                  compareSide === 'reverse' && styles.compareSideBtnActive,
+                ]}>
+                <Ionicons
+                  name={compareSide === 'reverse' ? 'radio-button-on' : 'radio-button-off'}
+                  size={13}
+                  color={compareSide === 'reverse' ? '#FFFFFF' : '#94A3B8'}
+                />
+                <Text
+                  style={[
+                    styles.compareSideBtnText,
+                    compareSide === 'reverse' && styles.compareSideBtnTextActive,
+                  ]}>
+                  Arka Yüz (Revers)
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Perde Göstergeleri (Sol vs Sağ) */}
+            <View style={styles.compareLabelsRow}>
+              <View style={styles.compareSideLabelBox}>
+                <View style={[styles.compareDot, { backgroundColor: '#38BDF8' }]} />
+                <Text style={styles.compareSideLabelText}>
+                  SOL: SİZİN ÇEKİMİNİZ (%{Math.round((sliderPos / COMPARE_SIZE) * 100)})
+                </Text>
+              </View>
+              <View style={styles.compareSideLabelBox}>
+                <View style={[styles.compareDot, { backgroundColor: '#D4AF37' }]} />
+                <Text style={[styles.compareSideLabelText, { color: '#D4AF37' }]}>
+                  SAĞ: MÜZE ARŞİVİ (%{100 - Math.round((sliderPos / COMPARE_SIZE) * 100)})
+                </Text>
+              </View>
+            </View>
+
+            {/* İnteraktif Perde Alanı (Draggable Before / After Slider) */}
+            <View style={styles.compareViewportWrapper}>
+              <View
+                {...panResponder.panHandlers}
+                style={[
+                  styles.compareViewport,
+                  { width: COMPARE_SIZE, height: COMPARE_SIZE },
+                ]}>
+                {/* 1. Katman (Altta): Sizin Çekiminiz */}
+                <Image
+                  source={{
+                    uri:
+                      compareSide === 'obverse'
+                        ? capturedObverseUri || capturedPhotoUri || detectedCoin.obverseImage
+                        : capturedReverseUri || capturedPhotoUri || detectedCoin.reverseImage,
+                  }}
+                  style={{ width: COMPARE_SIZE, height: COMPARE_SIZE }}
+                  contentFit="cover"
+                />
+
+                {/* 2. Katman (Üstte): Müze Arşiv Eseri (sliderPos genişliğinde kırpılmış) */}
+                <View
+                  style={[
+                    styles.compareClippedLayer,
+                    { width: sliderPos, height: COMPARE_SIZE },
+                  ]}>
+                  <Image
+                    source={{
+                      uri:
+                        compareSide === 'obverse'
+                          ? detectedCoin.obverseImage
+                          : detectedCoin.reverseImage,
+                    }}
+                    style={{ width: COMPARE_SIZE, height: COMPARE_SIZE }}
+                    contentFit="cover"
+                  />
+                </View>
+
+                {/* 3. Katman: Dikey Perde Çizgisi ve Tutamaç */}
+                <View
+                  style={[
+                    styles.compareDividerLine,
+                    { left: sliderPos - 1.5, height: COMPARE_SIZE },
+                  ]}>
+                  <View style={styles.compareKnob}>
+                    <Ionicons name="swap-horizontal" size={16} color="#1A1D20" />
+                  </View>
+                </View>
+              </View>
+            </View>
+
+            {/* Alt İpucu ve Nümizmatik Bilgi Notu */}
+            <View style={styles.compareFooterInfo}>
+              <Ionicons name="hand-left-outline" size={15} color="#D4AF37" />
+              <Text style={styles.compareFooterText}>
+                Parmağınızı sağa-sola kaydırarak kalıp detayı, lejant vuruşları ve aşınma seviyesini piksel piksel inceleyebilirsiniz.
+              </Text>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* 10. KATALOG SEÇİM MODALI */}
       <Modal
         visible={showSamplePicker}
         transparent
@@ -1137,6 +1508,88 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.full,
     maxWidth: '96%',
   },
+  instructionPillAlert: {
+    borderColor: '#F59E0B',
+    backgroundColor: 'rgba(245, 158, 11, 0.35)',
+  },
+  obversePreviewFloatCard: {
+    position: 'absolute',
+    bottom: BottomTabInset + 104,
+    left: Spacing.md,
+    right: Spacing.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#1E232B',
+    borderRadius: BorderRadius.lg,
+    padding: 10,
+    borderWidth: 1.5,
+    borderColor: '#D4AF37',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 10,
+    elevation: 10,
+    zIndex: 25,
+    gap: 8,
+  },
+  obverseMiniThumbBox: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    borderWidth: 1.5,
+    borderColor: '#D4AF37',
+    position: 'relative',
+  },
+  obverseMiniThumb: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 22,
+  },
+  miniCheckBadge: {
+    position: 'absolute',
+    bottom: -2,
+    right: -2,
+    backgroundColor: '#10B981',
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#1E232B',
+  },
+  obverseSavedTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#FDE68A',
+  },
+  obverseSavedSub: {
+    fontSize: 10,
+    color: '#CBD5E1',
+    marginTop: 2,
+  },
+  directAnalyzePillBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#9E7B3B',
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderRadius: BorderRadius.full,
+  },
+  directAnalyzePillText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  resetCapturePillBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   instructionTitle: {
     fontSize: 12.5,
     fontWeight: '700',
@@ -1223,6 +1676,7 @@ const styles = StyleSheet.create({
   },
   laserLine: {
     position: 'absolute',
+    left: '3%',
     width: '94%',
     height: 2.5,
     backgroundColor: '#EAB308',
@@ -1519,17 +1973,107 @@ const styles = StyleSheet.create({
   },
 
   // Yan Yana Görsel Karşılaştırma
+  comparisonInteractiveWrapper: {
+    marginBottom: Spacing.md,
+  },
   comparisonRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 16,
-    marginBottom: Spacing.md,
+    marginBottom: 6,
     backgroundColor: 'rgba(0, 0, 0, 0.35)',
     padding: Spacing.md,
     borderRadius: BorderRadius.lg,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  compareHintBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(212, 175, 55, 0.12)',
+    paddingVertical: 5,
+    paddingHorizontal: 12,
+    borderRadius: BorderRadius.full,
+    borderWidth: 1,
+    borderColor: 'rgba(212, 175, 55, 0.35)',
+    alignSelf: 'center',
+  },
+  compareHintText: {
+    fontSize: 10.5,
+    fontWeight: '700',
+    color: '#D4AF37',
+  },
+
+  // 2. ÇOK BOYUTLU NÜMİZMATİK AI ANALİZ KARTI (NGC ANCIENTS / PCGS METRİKLERİ)
+  ngcGradingContainer: {
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.md,
+    borderWidth: 1,
+    borderColor: 'rgba(212, 175, 55, 0.35)',
+    marginBottom: Spacing.md,
+  },
+  ngcHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+  },
+  ngcTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: 'rgba(212, 175, 55, 0.2)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: BorderRadius.xs,
+    borderWidth: 0.5,
+    borderColor: 'rgba(212, 175, 55, 0.4)',
+  },
+  ngcTagText: {
+    fontSize: 9.5,
+    fontWeight: '800',
+    color: '#D4AF37',
+    letterSpacing: 0.6,
+  },
+  ngcSubText: {
+    fontSize: 10,
+    color: '#94A3B8',
+  },
+  metricCardsGrid: {
+    gap: 7,
+  },
+  metricCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: BorderRadius.md,
+    padding: 8,
+    gap: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  metricIconBox: {
+    width: 30,
+    height: 30,
+    borderRadius: BorderRadius.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  metricCardLabel: {
+    fontSize: 9,
+    fontWeight: '700',
+    color: '#94A3B8',
+    letterSpacing: 0.5,
+  },
+  metricCardValue: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    marginTop: 1,
   },
   comparisonCol: {
     alignItems: 'center',
@@ -1759,5 +2303,160 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '700',
     color: '#D4AF37',
+  },
+
+  // 10. DETAY PERDE KIYASLAMA MODALI (COMPARE OVERLAY)
+  compareModalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(10, 13, 18, 0.95)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: Spacing.md,
+  },
+  compareModalCard: {
+    width: '100%',
+    maxWidth: 380,
+    backgroundColor: '#1E232B',
+    borderRadius: BorderRadius.xl,
+    padding: Spacing.lg,
+    borderWidth: 1.5,
+    borderColor: 'rgba(212, 175, 55, 0.4)',
+    alignItems: 'center',
+  },
+  compareHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    width: '100%',
+    marginBottom: Spacing.md,
+  },
+  compareTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  compareSubtitle: {
+    fontSize: 11,
+    color: '#94A3B8',
+    marginTop: 2,
+  },
+  compareSideToggleRow: {
+    flexDirection: 'row',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    borderRadius: BorderRadius.full,
+    padding: 3,
+    marginBottom: Spacing.md,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    width: '100%',
+  },
+  compareSideBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 7,
+    borderRadius: BorderRadius.full,
+  },
+  compareSideBtnActive: {
+    backgroundColor: '#9E7B3B',
+  },
+  compareSideBtnText: {
+    fontSize: 11.5,
+    fontWeight: '600',
+    color: '#94A3B8',
+  },
+  compareSideBtnTextActive: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+  },
+  compareLabelsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    width: '100%',
+    marginBottom: 8,
+    paddingHorizontal: 4,
+  },
+  compareSideLabelBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  compareDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  compareSideLabelText: {
+    fontSize: 9.5,
+    fontWeight: '700',
+    color: '#38BDF8',
+    letterSpacing: 0.5,
+  },
+  compareViewportWrapper: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginVertical: 4,
+    borderWidth: 2,
+    borderColor: 'rgba(212, 175, 55, 0.5)',
+    borderRadius: 160,
+    overflow: 'hidden',
+    backgroundColor: '#0F1216',
+  },
+  compareViewport: {
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  compareClippedLayer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    overflow: 'hidden',
+  },
+  compareDividerLine: {
+    position: 'absolute',
+    top: 0,
+    width: 3,
+    backgroundColor: '#D4AF37',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#D4AF37',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 6,
+  },
+  compareKnob: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#D4AF37',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.4,
+    shadowRadius: 4,
+    elevation: 6,
+  },
+  compareFooterInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: Spacing.md,
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderRadius: BorderRadius.md,
+    borderWidth: 0.5,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  compareFooterText: {
+    fontSize: 10.5,
+    color: '#94A3B8',
+    flex: 1,
+    lineHeight: 14,
   },
 });
