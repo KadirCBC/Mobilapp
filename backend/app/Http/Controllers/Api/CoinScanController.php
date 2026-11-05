@@ -25,143 +25,115 @@ class CoinScanController extends Controller
     }
 
     /**
-     * Mobil kameradan taranan sikke görselini analiz ederek en yakın 3 nümizmatik eseri döner.
-     *
-     * POST /api/v1/scan/identify
-     */
-    public function identify(Request $request): JsonResponse
-    {
-        $validator = Validator::make($request->all(), [
-            'image'           => 'nullable|image|max:15360',
-            'photo'           => 'nullable|image|max:15360',
-            'image_base64'    => 'nullable|string',
-            'photo_base64'    => 'nullable|string',
-            'civilization_id' => 'nullable|integer|exists:civilizations,id',
-            'metal_type'      => 'nullable|string|max:50',
-            'use_gemini_ai'   => 'nullable|boolean',
-        ]);
-
-        if ($validator->fails()) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Doğrulama hatası',
-                'errors'  => $validator->errors(),
-            ], 422);
-        }
-
-        $imageBinary = null;
-        $rawBase64 = null;
-
-        if ($request->hasFile('image')) {
-            $imageBinary = file_get_contents($request->file('image')->getRealPath());
-            $rawBase64 = base64_encode($imageBinary);
-        } elseif ($request->hasFile('photo')) {
-            $imageBinary = file_get_contents($request->file('photo')->getRealPath());
-            $rawBase64 = base64_encode($imageBinary);
-        } elseif ($request->filled('image_base64') || $request->filled('photo_base64')) {
-            $rawBase64 = $request->input('image_base64') ?? $request->input('photo_base64');
-            $cleanBase64 = str_contains($rawBase64, ',') ? explode(',', $rawBase64)[1] : $rawBase64;
-            $imageBinary = base64_decode($cleanBase64, true);
-        }
-
-        if (!$imageBinary) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Lütfen geçerli bir sikke fotoğrafı yükleyiniz (image veya image_base64).',
-            ], 422);
-        }
-
-        try {
-            $hints = [
-                'civilization_id' => $request->input('civilization_id'),
-                'metal_type'      => $request->input('metal_type'),
-            ];
-
-            // 1. Yerel Veritabanı Spektrum & Benzerlik Eşleştirme Motoru
-            $result = $this->matcherService->match($imageBinary, $hints);
-
-            // 2. İsteğe Bağlı Gemini Multimodal AI Teşhisi
-            if ($request->boolean('use_gemini_ai', false)) {
-                try {
-                    $aiDiagnosis = $this->geminiService->scan($rawBase64);
-                    $result['ai_diagnosis'] = $aiDiagnosis;
-
-                    // AI Tarama Günlüğünü (Audit Log) Veritabanına Kaydet
-                    AiScanLog::create([
-                        'user_ip'             => $request->ip(),
-                        'incoming_avers_path' => null,
-                        'detected_title'      => $aiDiagnosis['identified_title'],
-                        'confidence_score'    => $aiDiagnosis['confidence_score'],
-                        'matched_coin_id'     => $result['matches'][0]['id'] ?? null,
-                        'raw_ai_response'     => $aiDiagnosis,
-                    ]);
-                } catch (\Throwable $aiEx) {
-                    $result['ai_diagnosis_error'] = $aiEx->getMessage();
-                }
-            }
-
-            return response()->json($result, 200);
-        } catch (\InvalidArgumentException $e) {
-            return response()->json([
-                'success' => false,
-                'message' => $e->getMessage(),
-            ], 400);
-        } catch (\Throwable $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Görsel işleme ve eşleştirme sırasında beklenmeyen bir hata oluştu.',
-                'debug'   => config('app.debug') ? $e->getMessage() : null,
-            ], 500);
-        }
-    }
-
-    /**
      * Doğrudan Gemini AI Çok Modlu Nümizmatik Teşhis Uç Noktası (%100 Saf JSON).
      *
      * POST /api/v1/scan/gemini
      */
     public function geminiScan(Request $request): JsonResponse
     {
-        $request->validate([
-            'avers_base64'  => 'required_without:avers_file|string',
+        // 1. Doğrulama: avers_image (base64 string veya multipart dosya kabul edilir)
+        $validator = Validator::make($request->all(), [
+            'avers_image'   => 'required_without_all:avers_base64,image|string',
+            'avers_base64'  => 'nullable|string',
+            'image'         => 'nullable|image|max:15360',
+            'revers_image'  => 'nullable|string',
             'revers_base64' => 'nullable|string',
-            'avers_file'    => 'nullable|image|max:15360',
             'revers_file'   => 'nullable|image|max:15360',
         ]);
 
-        $aversInput = $request->hasFile('avers_file')
-            ? $request->file('avers_file')->getRealPath()
-            : $request->input('avers_base64');
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Lütfen geçerli bir ön yüz (avers_image) görsel verisi sağlayınız.',
+                'errors'  => $validator->errors(),
+            ], 422);
+        }
 
-        $reversInput = $request->hasFile('revers_file')
-            ? $request->file('revers_file')->getRealPath()
-            : $request->input('revers_base64');
+        // Ön Yüz Görselini Belirle
+        $aversInput = null;
+        if ($request->hasFile('image')) {
+            $aversInput = $request->file('image')->getRealPath();
+        } else {
+            $aversInput = $request->input('avers_image') ?? $request->input('avers_base64');
+        }
+
+        // Arka Yüz Görselini Belirle (Varsa)
+        $reversInput = null;
+        if ($request->hasFile('revers_file')) {
+            $reversInput = $request->file('revers_file')->getRealPath();
+        } else {
+            $reversInput = $request->input('revers_image') ?? $request->input('revers_base64');
+        }
 
         try {
+            // 2. Gemini Çok Modlu Nümizmatik Teşhisini Başlat (%100 Saf JSON)
             $analysis = $this->geminiService->scan($aversInput, $reversInput);
 
-            // Veritabanındaki en yakın sikke ile eşleştir
-            $matchedCoin = Coin::where('title', 'like', "%{$analysis['identified_title']}%")
-                ->orWhere('ruler', 'like', "%{$analysis['ruler']}%")
-                ->first();
+            // 3. Yerel Veritabanındaki Eserlerle Eşleştirme (matched_archive_coin)
+            $matchedCoin = null;
 
-            // Günlüğü (AiScanLog) Kaydet
-            AiScanLog::create([
-                'user_ip'          => $request->ip(),
-                'detected_title'   => $analysis['identified_title'],
-                'confidence_score' => $analysis['confidence_score'],
-                'matched_coin_id'  => $matchedCoin?->id,
-                'raw_ai_response'  => $analysis,
+            // A) Başlık veya Hükümdara göre arama
+            $identifiedTitle = $analysis['identified_title'] ?? '';
+            $ruler = $analysis['ruler'] ?? '';
+
+            $candidateQuery = Coin::with(['civilization', 'mint'])->published();
+
+            if (!empty($identifiedTitle) || !empty($ruler)) {
+                $candidateQuery->where(function ($q) use ($identifiedTitle, $ruler) {
+                    if (!empty($identifiedTitle)) {
+                        $q->where('title', 'like', "%{$identifiedTitle}%");
+                    }
+                    if (!empty($ruler)) {
+                        $q->orWhere('ruler', 'like', "%{$ruler}%");
+                    }
+                });
+
+                $matchedCoin = $candidateQuery->first();
+            }
+
+            // Eğer birebir bulunamadıysa medeniyet ve metal türüne göre en yakın vitrin eserini al
+            if (!$matchedCoin && !empty($analysis['civilization'])) {
+                $matchedCoin = Coin::with(['civilization', 'mint'])
+                    ->published()
+                    ->whereHas('civilization', function ($q) use ($analysis) {
+                        $q->where('name', 'like', "%{$analysis['civilization']}%");
+                    })
+                    ->first();
+            }
+
+            // 4. Denetim Günlüğünü (ai_scan_logs) Veritabanına Kaydet
+            $scanLog = AiScanLog::create([
+                'user_ip'             => $request->ip(),
+                'incoming_avers_path' => null,
+                'incoming_revers_path'=> null,
+                'detected_title'      => $analysis['identified_title'],
+                'confidence_score'    => $analysis['confidence_score'],
+                'matched_coin_id'     => $matchedCoin?->id,
+                'raw_ai_response'     => $analysis,
             ]);
 
+            // 5. Mobil İstemci İçin Zengin JSON Çıktısı Hazırla
             return response()->json([
-                'success' => true,
-                'data'    => $analysis,
-                'matched_coin' => $matchedCoin ? [
-                    'id'               => $matchedCoin->id,
-                    'title'            => $matchedCoin->title,
-                    'formatted_period' => $matchedCoin->formatted_period,
-                    'avers_thumb_url'  => $matchedCoin->avers_thumb_url,
+                'success'    => true,
+                'scan_id'    => $scanLog->id,
+                'ai_analysis'=> $analysis,
+                'matched_archive_coin' => $matchedCoin ? [
+                    'id'                    => $matchedCoin->id,
+                    'title'                 => $matchedCoin->title,
+                    'slug'                  => $matchedCoin->slug,
+                    'civilization'          => $matchedCoin->civilization?->name,
+                    'mint'                  => $matchedCoin->mint?->name,
+                    'ruler'                 => $matchedCoin->ruler,
+                    'metal_type'            => $matchedCoin->metal_type,
+                    'standard_name'         => $matchedCoin->standard_name,
+                    'formatted_period'      => $matchedCoin->formatted_period,
+                    'formatted_value_range' => $matchedCoin->formatted_value_range,
+                    'currency'              => $matchedCoin->currency,
+                    'avers_thumb_url'       => $matchedCoin->avers_thumb_url,
+                    'revers_thumb_url'      => $matchedCoin->revers_thumb_url,
+                    'reference_codes'       => $matchedCoin->reference_codes,
+                    'detail_url'            => url("/api/v1/coins/{$matchedCoin->id}"),
+                    'app_deep_link'         => "mobilapp://coin/{$matchedCoin->id}",
                 ] : null,
             ], 200);
 
@@ -175,6 +147,65 @@ class CoinScanController extends Controller
                 'success' => false,
                 'message' => 'Gemini AI analizi gerçekleştirilemedi.',
                 'debug'   => config('app.debug') ? $e->getMessage() : null,
+            ], 500);
+        }
+    }
+
+    /**
+     * Hibrit Yerel Spektrum ve Kamera Tanıma Motoru.
+     *
+     * POST /api/v1/scan/identify
+     */
+    public function identify(Request $request): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'image'           => 'nullable|image|max:15360',
+            'photo'           => 'nullable|image|max:15360',
+            'image_base64'    => 'nullable|string',
+            'photo_base64'    => 'nullable|string',
+            'civilization_id' => 'nullable|integer|exists:civilizations,id',
+            'metal_type'      => 'nullable|string|max:50',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Doğrulama hatası',
+                'errors'  => $validator->errors(),
+            ], 422);
+        }
+
+        $imageBinary = null;
+        if ($request->hasFile('image')) {
+            $imageBinary = file_get_contents($request->file('image')->getRealPath());
+        } elseif ($request->hasFile('photo')) {
+            $imageBinary = file_get_contents($request->file('photo')->getRealPath());
+        } elseif ($request->filled('image_base64') || $request->filled('photo_base64')) {
+            $raw = $request->input('image_base64') ?? $request->input('photo_base64');
+            $clean = str_contains($raw, ',') ? explode(',', $raw)[1] : $raw;
+            $imageBinary = base64_decode($clean, true);
+        }
+
+        if (!$imageBinary) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Lütfen geçerli bir sikke fotoğrafı yükleyiniz.',
+            ], 422);
+        }
+
+        try {
+            $hints = [
+                'civilization_id' => $request->input('civilization_id'),
+                'metal_type'      => $request->input('metal_type'),
+            ];
+
+            $result = $this->matcherService->match($imageBinary, $hints);
+
+            return response()->json($result, 200);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
             ], 500);
         }
     }

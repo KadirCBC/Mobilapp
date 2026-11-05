@@ -180,6 +180,121 @@ SCHEMA;
     }
 
     /**
+     * VCoins ve benzeri sitelerden kazınan İngilizce satış açıklamasını
+     * Gemini AI ile analiz edip Türkçe yapılandırılmış nümizmatik veriye dönüştürür.
+     *
+     * @param string $rawText Kazınan ham metin (başlık, açıklama, parametreler)
+     * @return array Yapılandırılmış Türkçe nümizmatik veri dizisi
+     */
+    public function analyzeScrapedText(string $rawText): array
+    {
+        $setting = AiSetting::where('provider', 'gemini')
+            ->where('is_active', true)
+            ->latest()
+            ->first();
+
+        if (!$setting) {
+            throw new \RuntimeException('Gemini AI servisi şu anda aktif değil veya yapılandırılmamış.');
+        }
+
+        $apiKey = $setting->api_key;
+        if (empty($apiKey)) {
+            throw new \RuntimeException('Gemini API anahtarı bulunamadı.');
+        }
+
+        $model = $setting->model_name ?: 'gemini-1.5-flash';
+        $temperature = (float) ($setting->temperature ?? 0.20);
+        $maxTokens = (int) ($setting->max_tokens ?? 2048);
+
+        $systemInstruction = <<<INSTRUCTION
+Sen uluslararası kıdemli bir nümizmat ve antik sikke uzmanısın. Sana sunulan İngilizce nümizmatik ürün metnini analiz et, terimleri Türkçe nümizmatik literatürüne uygun olarak çevir ve tam olarak şu JSON şemasında yanıt ver:
+- title (Türkçe tam sikke adı)
+- civilization (Medeniyet: Antik Yunan, Roma İmparatorluğu, Bizans vb.)
+- ruler (Hükümdar / İmparator)
+- metal_type (Altın (AU), Gümüş (AR), Bronz (AE), Elektrum vb.)
+- standard_name (Stater, Tetradrahmi, Denarius, Solidus vb.)
+- weight_grams (float, örn: 8.42, sayı veya null)
+- diameter_mm (float, örn: 19.5, sayı veya null)
+- die_axis (Kalıp yönü, örn: 6h veya 12h)
+- year_start (integer, MÖ için negatif örn: -336)
+- year_end (integer, örn: -323)
+- condition_grade (FDC, EF, VF, Fine vb.)
+- avers_description (Ön yüzün Türkçe rölyef, portre ve lejant açıklaması)
+- revers_description (Arka yüzün Türkçe rölyef, figür ve lejant açıklaması)
+- reference_codes (RIC, RPC, Sear, BMC kodları)
+- estimated_value_usd (Satış fiyatı varsa nümerik, örn: 1250.00)
+
+Yanıtını KESİNLİKLE geçerli saf JSON formatında döndür. JSON haricinde hiçbir ek metin, açıklama veya markdown bloğu üretme.
+INSTRUCTION;
+
+        $payload = [
+            'systemInstruction' => [
+                'parts' => [
+                    ['text' => $systemInstruction],
+                ],
+            ],
+            'contents' => [
+                [
+                    'role'  => 'user',
+                    'parts' => [
+                        ['text' => "Aşağıdaki nümizmatik ürün açıklamasını analiz et ve belirtilen JSON formatında çıktı ver:\n\n" . $rawText],
+                    ],
+                ],
+            ],
+            'generationConfig' => [
+                'temperature'       => $temperature,
+                'maxOutputTokens'   => $maxTokens,
+                'responseMimeType'  => 'application/json',
+            ],
+        ];
+
+        $endpoint = "https://generativelanguage.googleapis.com/v1beta/models/{$model}:generateContent?key=" . urlencode($apiKey);
+
+        $response = Http::timeout(30)
+            ->withHeaders(['Content-Type' => 'application/json'])
+            ->post($endpoint, $payload);
+
+        if (!$response->successful()) {
+            $errorMsg = $response->json()['error']['message'] ?? $response->body();
+            Log::error("Gemini Scraper Metin Analizi Hatası: {$errorMsg}");
+            throw new \RuntimeException("Gemini API Hatası: {$errorMsg}");
+        }
+
+        $responseData = $response->json();
+        $rawJson = $responseData['candidates'][0]['content']['parts'][0]['text'] ?? '{}';
+
+        $cleanJson = trim($rawJson);
+        if (str_starts_with($cleanJson, '```json')) {
+            $cleanJson = preg_replace('/^```json\s*/i', '', $cleanJson);
+            $cleanJson = preg_replace('/\s*```$/', '', $cleanJson);
+        } elseif (str_starts_with($cleanJson, '```')) {
+            $cleanJson = preg_replace('/^```\s*/', '', $cleanJson);
+            $cleanJson = preg_replace('/\s*```$/', '', $cleanJson);
+        }
+
+        $parsed = json_decode($cleanJson, true) ?: [];
+
+        return [
+            'title'               => $parsed['title'] ?? 'Antik Sikke',
+            'civilization'        => $parsed['civilization'] ?? 'Bilinmiyor',
+            'ruler'               => $parsed['ruler'] ?? null,
+            'metal_type'          => $parsed['metal_type'] ?? 'Belirlenemedi',
+            'standard_name'       => $parsed['standard_name'] ?? 'Birim',
+            'weight_grams'        => isset($parsed['weight_grams']) && is_numeric($parsed['weight_grams']) ? (float) $parsed['weight_grams'] : null,
+            'diameter_mm'         => isset($parsed['diameter_mm']) && is_numeric($parsed['diameter_mm']) ? (float) $parsed['diameter_mm'] : null,
+            'die_axis'            => $parsed['die_axis'] ?? null,
+            'year_start'          => isset($parsed['year_start']) && is_numeric($parsed['year_start']) ? (int) $parsed['year_start'] : null,
+            'year_end'            => isset($parsed['year_end']) && is_numeric($parsed['year_end']) ? (int) $parsed['year_end'] : null,
+            'condition_grade'     => $parsed['condition_grade'] ?? 'VF',
+            'avers_description'   => $parsed['avers_description'] ?? null,
+            'revers_description'  => $parsed['revers_description'] ?? null,
+            'reference_codes'     => $parsed['reference_codes'] ?? [],
+            'estimated_value_usd' => isset($parsed['estimated_value_usd']) && is_numeric($parsed['estimated_value_usd']) ? (float) $parsed['estimated_value_usd'] : null,
+            '_raw'                => $parsed,
+        ];
+    }
+
+    /**
      * Gelen veriyi (dosya yolu, data-uri veya ham base64) temiz saf base64 formatına çevirir.
      */
     protected function normalizeBase64(string $input): ?string

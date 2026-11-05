@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Admin\AiSettingController;
 use App\Http\Controllers\Admin\CoinController;
+use App\Http\Controllers\Admin\CoinImportController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -14,6 +15,9 @@ Route::get('/', function () {
 |--------------------------------------------------------------------------
 */
 Route::prefix('admin')->name('admin.')->middleware(['web'])->group(function () {
+    // 0. VCoins ve Dış Kaynaklardan AJAX ile Tek Tıkla Veri Çekme Uç Noktası
+    Route::post('coins/fetch-from-url', [CoinImportController::class, 'fetchFromUrl'])->name('coins.fetch_from_url');
+
     // 1. Sikkeler CRUD Kaynak Rotaları
     Route::resource('coins', CoinController::class);
     Route::post('coins/{coin}/toggle-publish', [CoinController::class, 'togglePublish'])->name('coins.toggle_publish');

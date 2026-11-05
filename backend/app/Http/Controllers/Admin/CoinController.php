@@ -103,11 +103,15 @@ class CoinController extends Controller
         // Ön Yüz (Avers) Görselini WebP'ye Dönüştür ve Kaydet
         if ($request->hasFile('avers_image_file')) {
             $validated['avers_image'] = $this->uploadAndConvertToWebp($request->file('avers_image_file'), 'obverse');
+        } elseif ($request->filled('avers_image')) {
+            $validated['avers_image'] = $request->input('avers_image');
         }
 
         // Arka Yüz (Revers) Görselini WebP'ye Dönüştür ve Kaydet
         if ($request->hasFile('revers_image_file')) {
             $validated['revers_image'] = $this->uploadAndConvertToWebp($request->file('revers_image_file'), 'reverse');
+        } elseif ($request->filled('revers_image')) {
+            $validated['revers_image'] = $request->input('revers_image');
         }
 
         // Referans kodları (Diziye dönüştür)
@@ -150,6 +154,8 @@ class CoinController extends Controller
                 $this->optimizerService->deleteOldImages($coin->avers_image);
             }
             $validated['avers_image'] = $this->uploadAndConvertToWebp($request->file('avers_image_file'), 'obverse');
+        } elseif ($request->filled('avers_image')) {
+            $validated['avers_image'] = $request->input('avers_image');
         }
 
         // Arka Yüz (Revers) Güncellendi mi?
@@ -158,6 +164,8 @@ class CoinController extends Controller
                 $this->optimizerService->deleteOldImages($coin->revers_image);
             }
             $validated['revers_image'] = $this->uploadAndConvertToWebp($request->file('revers_image_file'), 'reverse');
+        } elseif ($request->filled('revers_image')) {
+            $validated['revers_image'] = $request->input('revers_image');
         }
 
         $validated['reference_codes'] = $this->parseReferenceCodes($request->input('reference_codes_raw'));
@@ -293,6 +301,8 @@ class CoinController extends Controller
             'rarity_code'         => 'nullable|string|max:20',
             'avers_description'   => 'nullable|string',
             'revers_description'  => 'nullable|string',
+            'avers_image'         => 'nullable|string|max:500',
+            'revers_image'        => 'nullable|string|max:500',
             'avers_image_file'    => 'nullable|image|max:15360',
             'revers_image_file'   => 'nullable|image|max:15360',
             'estimated_value_min' => 'nullable|numeric|min:0',

@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
+  ActivityIndicator,
   FlatList,
   Platform,
   ScrollView,
@@ -30,6 +31,7 @@ import {
 } from '@/data/filterOptions';
 import { CoinItem, MOCK_COINS } from '@/data/mockData';
 import { useTheme } from '@/hooks/use-theme';
+import { api } from '@/services/api';
 
 const ANDROID_TOP_SPACING = (RNStatusBar.currentHeight ?? 24) + 8;
 
@@ -83,6 +85,76 @@ export default function HomeScreen() {
   const [filterModalVisible, setFilterModalVisible] = useState(false);
   const [mainMenuVisible, setMainMenuVisible] = useState(false);
   const [filters, setFilters] = useState<FilterState>(DEFAULT_FILTER_STATE);
+
+  // Canlı Laravel cPanel API Sayfalama ve Durum Yönetimi
+  const [coins, setCoins] = useState<CoinItem[]>(MOCK_COINS);
+  const [page, setPage] = useState<number>(1);
+  const [lastPage, setLastPage] = useState<number>(1);
+  const [totalServerCount, setTotalServerCount] = useState<number>(MOCK_COINS.length);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [isLoadingMore, setIsLoadingMore] = useState<boolean>(false);
+  const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
+
+  /**
+   * GET /api/v1/coins uç noktasından filtreli ve sayfalı sikke listesini çeker.
+   */
+  const fetchCoins = async (targetPage = 1, isRefresh = false) => {
+    if (targetPage === 1 && !isRefresh) {
+      setIsLoading(true);
+    } else if (targetPage > 1) {
+      setIsLoadingMore(true);
+    }
+
+    try {
+      const metalsParam = filters.metals.length > 0 ? filters.metals : undefined;
+      const civsParam: string[] = [];
+      if (selectedCivilization !== 'Tümü') {
+        civsParam.push(selectedCivilization);
+      }
+      if (filters.civilizations && filters.civilizations.length > 0) {
+        civsParam.push(...filters.civilizations);
+      }
+
+      const res = await api.coins.list({
+        page: targetPage,
+        per_page: 20,
+        q: searchQuery.trim() || undefined,
+        metals: metalsParam,
+        civilizations: civsParam.length > 0 ? civsParam : undefined,
+        price_min: filters.minPrice ?? undefined,
+        price_max: filters.maxPrice ?? undefined,
+        sort_by: filters.sortBy || 'name',
+      });
+
+      if (res && res.data) {
+        if (targetPage === 1 || isRefresh) {
+          setCoins(res.data);
+        } else {
+          setCoins((prev) => {
+            const existingIds = new Set(prev.map((c) => c.id));
+            const newItems = res.data.filter((c) => !existingIds.has(c.id));
+            return [...prev, ...newItems];
+          });
+        }
+        setPage(res.meta.current_page || targetPage);
+        setLastPage(res.meta.last_page || 1);
+        setTotalServerCount(res.meta.total || res.data.length);
+      }
+    } catch (err) {
+      console.warn('API coins fetch failed:', err);
+    } finally {
+      setIsLoading(false);
+      setIsLoadingMore(false);
+      setIsRefreshing(false);
+    }
+  };
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      fetchCoins(1);
+    }, 250);
+    return () => clearTimeout(timer);
+  }, [searchQuery, selectedCivilization, selectedPreset, filters]);
 
   useEffect(() => {
     if (params.ruler) {
@@ -581,8 +653,8 @@ export default function HomeScreen() {
 
       {/* SİKKE LİSTESİ (Ön & Arka Yüz Yan Yana Dairesel Kartlar) */}
       <FlatList
-        data={filteredCoins}
-        keyExtractor={(item) => item.id}
+        data={coins}
+        keyExtractor={(item) => String(item.id)}
         renderItem={({ item }) => (
           <CoinCard item={item} onPress={() => handleCoinPress(item.id)} />
         )}
@@ -591,6 +663,27 @@ export default function HomeScreen() {
           styles.flatListContent,
           { paddingBottom: BottomTabInset + Spacing.xl + 20 },
         ]}
+        onEndReached={() => {
+          if (!isLoading && !isLoadingMore && page < lastPage) {
+            fetchCoins(page + 1);
+          }
+        }}
+        onEndReachedThreshold={0.4}
+        refreshing={isRefreshing}
+        onRefresh={() => {
+          setIsRefreshing(true);
+          fetchCoins(1, true);
+        }}
+        ListFooterComponent={
+          isLoadingMore ? (
+            <View style={{ paddingVertical: 20, alignItems: 'center' }}>
+              <ActivityIndicator size="small" color={colors.primary} />
+              <Text style={{ fontSize: 12, color: colors.textSecondary, marginTop: 6 }}>
+                Daha fazla nümizmatik arşiv yükleniyor...
+              </Text>
+            </View>
+          ) : undefined
+        }
         ListHeaderComponent={
           <>
             {/* 2. GÜNÜN / HAFTANIN NADİR ESERİ (FEATURED HERO BANNER) */}
@@ -901,7 +994,7 @@ export default function HomeScreen() {
                   { backgroundColor: colors.surfaceSubtle, borderColor: colors.border },
                 ]}>
                 <Text style={[styles.countBadgeText, { color: colors.primary }]}>
-                  {filteredCoins.length} Eser
+                  {totalServerCount} Eser
                 </Text>
               </View>
             </View>
@@ -933,27 +1026,36 @@ export default function HomeScreen() {
           </>
         }
         ListEmptyComponent={
-          <View style={styles.emptyCard}>
-            <View style={styles.emptyIconCircle}>
-              <Ionicons name="search-outline" size={32} color={colors.primary} />
+          isLoading ? (
+            <View style={{ paddingVertical: 48, alignItems: 'center', justifyContent: 'center' }}>
+              <ActivityIndicator size="large" color={colors.primary} />
+              <Text style={{ fontSize: 13, color: colors.textSecondary, marginTop: 12, fontWeight: '600' }}>
+                Nümizmatik Arşiv Veritabanından Yükleniyor...
+              </Text>
             </View>
-            <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>
-              Kriterlere Uygun Tarihi Eser Bulunamadı
-            </Text>
-            <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>
-              Belirlediğiniz arama terimi veya filtre kombinasyonuna uyan sikke bulunamadı. Lütfen filtrelerinizi gevşetin veya sıfırlayın.
-            </Text>
-            <TouchableOpacity
-              activeOpacity={0.8}
-              onPress={handleResetAllFilters}
-              style={[
-                styles.emptyResetBtn,
-                { backgroundColor: colors.primary },
-              ]}>
-              <Ionicons name="refresh-outline" size={15} color="#FFFFFF" />
-              <Text style={styles.emptyResetBtnText}>Filtreleri Sıfırla</Text>
-            </TouchableOpacity>
-          </View>
+          ) : (
+            <View style={styles.emptyCard}>
+              <View style={styles.emptyIconCircle}>
+                <Ionicons name="search-outline" size={32} color={colors.primary} />
+              </View>
+              <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>
+                Kriterlere Uygun Tarihi Eser Bulunamadı
+              </Text>
+              <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>
+                Belirlediğiniz arama terimi veya filtre kombinasyonuna uyan sikke bulunamadı. Lütfen filtrelerinizi gevşetin veya sıfırlayın.
+              </Text>
+              <TouchableOpacity
+                activeOpacity={0.8}
+                onPress={handleResetAllFilters}
+                style={[
+                  styles.emptyResetBtn,
+                  { backgroundColor: colors.primary },
+                ]}>
+                <Ionicons name="refresh-outline" size={15} color="#FFFFFF" />
+                <Text style={styles.emptyResetBtnText}>Filtreleri Sıfırla</Text>
+              </TouchableOpacity>
+            </View>
+          )
         }
       />
 

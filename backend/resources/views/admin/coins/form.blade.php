@@ -80,6 +80,10 @@
         from { opacity: 0; transform: translateY(4px); }
         to { opacity: 1; transform: translateY(0); }
     }
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
 
     .form-grid-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; }
     .form-grid-3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px; }
@@ -202,6 +206,39 @@
         </div>
     @endif
 
+    <!-- ⚡ Altın Vurgulu Otomatik Veri Çekme & AI Çeviri Barı (#9E7B3B) -->
+    <div class="card" style="background: linear-gradient(135deg, #FBF8F2 0%, #FFFFFF 100%); border: 2px solid #9E7B3B; border-radius: 16px; padding: 22px 28px; margin-bottom: 24px; box-shadow: 0 4px 20px -2px rgba(158, 123, 59, 0.15);">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <div style="width: 32px; height: 32px; border-radius: 8px; background: rgba(158, 123, 59, 0.15); display: flex; align-items: center; justify-content: center; color: #9E7B3B;">
+                    <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>
+                </div>
+                <div>
+                    <h3 style="font-family: 'Cinzel', serif; font-size: 16px; font-weight: 700; color: #1A1D20; margin: 0;">
+                        Dış Bağlantıdan Otomatik İçe Aktar (VCoins vb.)
+                    </h3>
+                    <p style="font-size: 12px; color: #64748B; margin: 2px 0 0 0;">
+                        Google Gemini 1.5 nümizmatik AI motoru ile İngilizce açıklamaları Türkçeleştirir ve görselleri WebP olarak kaydeder.
+                    </p>
+                </div>
+            </div>
+            <span style="background: #9E7B3B; color: #FFFFFF; font-size: 10.5px; font-weight: 800; letter-spacing: 0.6px; padding: 4px 10px; border-radius: 20px;">
+                YAPAY ZEKA ENTEGRASYONU
+            </span>
+        </div>
+
+        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+            <input type="url" id="scraper_url" class="form-control" placeholder="https://www.vcoins.com/en/stores/..." style="flex: 1; min-width: 300px; background: #FFFFFF; border-color: rgba(158, 123, 59, 0.4); font-size: 13.5px;">
+            <button type="button" id="btn_fetch_url" class="btn btn-gold" onclick="fetchCoinFromUrl()" style="white-space: nowrap; display: inline-flex; align-items: center; gap: 8px; padding: 11px 24px; font-weight: 700; background: #9E7B3B; border-color: #9E7B3B;">
+                <span id="fetch_spinner" style="display: none; width: 14px; height: 14px; border: 2px solid #FFF; border-top-color: transparent; border-radius: 50%; animation: spin 0.8s linear infinite;"></span>
+                <svg id="fetch_icon" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 12a9 9 0 0 1-9 9m9-9a9 9 0 0 0-9-9m9 9H3m9 9a9 9 0 0 1-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9"></path></svg>
+                <span id="fetch_btn_text">Verileri Getir ve Çevir</span>
+            </button>
+        </div>
+
+        <div id="fetch_status_box" style="display: none; margin-top: 14px; padding: 12px 16px; border-radius: 10px; font-size: 13px; font-weight: 500;"></div>
+    </div>
+
     <!-- 4 Sekmeli Navigasyon Çubuğu -->
     <div class="tab-nav">
         <button type="button" class="tab-btn active" onclick="switchTab('tab-basic', this)">
@@ -227,6 +264,9 @@
         @if ($coin->exists)
             @method('PUT')
         @endif
+
+        <input type="hidden" name="avers_image" id="avers_image" value="{{ old('avers_image', $coin->avers_image) }}">
+        <input type="hidden" name="revers_image" id="revers_image" value="{{ old('revers_image', $coin->revers_image) }}">
 
         <!-- SEKME 1: Temel Bilgiler -->
         <div id="tab-basic" class="tab-content active">
@@ -514,6 +554,166 @@
             mintSelect.innerHTML = options;
         } catch (e) {
             mintSelect.innerHTML = '<option value="">Darphaneler yüklenemedi</option>';
+        }
+    }
+
+    async function fetchCoinFromUrl() {
+        const urlInput = document.getElementById('scraper_url');
+        const url = urlInput.value.trim();
+        const btn = document.getElementById('btn_fetch_url');
+        const btnText = document.getElementById('fetch_btn_text');
+        const spinner = document.getElementById('fetch_spinner');
+        const icon = document.getElementById('fetch_icon');
+        const statusBox = document.getElementById('fetch_status_box');
+
+        if (!url) {
+            alert('Lütfen geçerli bir ürün URL adresi giriniz.');
+            urlInput.focus();
+            return;
+        }
+
+        btn.disabled = true;
+        btnText.innerText = 'Çözümleniyor...';
+        spinner.style.display = 'inline-block';
+        icon.style.display = 'none';
+        statusBox.style.display = 'block';
+        statusBox.style.background = '#EFF6FF';
+        statusBox.style.color = '#1E40AF';
+        statusBox.style.border = '1px solid #BFDBFE';
+        statusBox.innerHTML = '⏳ Sayfa içeriği çekiliyor, Gemini 1.5 ile Türkçeleştiriliyor ve görseller WebP olarak sunucuya indiriliyor. Lütfen bekleyiniz...';
+
+        try {
+            const response = await fetch('{{ route('admin.coins.fetch_from_url') }}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                    'Accept': 'application/json',
+                },
+                body: JSON.stringify({ url: url })
+            });
+
+            const res = await response.json();
+
+            if (res.success && res.data) {
+                const d = res.data;
+
+                // Form Alanlarını Otomatik Doldur
+                if (d.title) document.getElementById('title').value = d.title;
+                if (d.ruler) document.getElementById('ruler').value = d.ruler;
+                if (d.civilization_id) {
+                    const civSelect = document.getElementById('civilization_id');
+                    civSelect.value = d.civilization_id;
+                    loadMintsByCivilization(d.civilization_id);
+                }
+                if (d.metal_type) {
+                    const metalSelect = document.getElementById('metal_type');
+                    if (metalSelect) {
+                        const target = d.metal_type.toLowerCase();
+                        for (let opt of metalSelect.options) {
+                            const val = opt.value.toLowerCase();
+                            if (val.includes(target) || target.includes(val) || 
+                               (target.includes('altın') && val.includes('altın')) || 
+                               (target.includes('gümüş') && val.includes('gümüş')) || 
+                               (target.includes('bronz') && val.includes('bronz')) || 
+                               (target.includes('elektrum') && val.includes('elektrum'))) {
+                                metalSelect.value = opt.value;
+                                break;
+                            }
+                        }
+                    }
+                }
+                if (d.standard_name) {
+                    const stdInput = document.getElementById('standard_name');
+                    if (stdInput) stdInput.value = d.standard_name;
+                }
+                if (d.weight_grams) {
+                    const wInput = document.getElementById('weight_grams');
+                    if (wInput) wInput.value = d.weight_grams;
+                }
+                if (d.diameter_mm) {
+                    const diaInput = document.getElementById('diameter_mm');
+                    if (diaInput) diaInput.value = d.diameter_mm;
+                }
+                if (d.year_start !== null && d.year_start !== undefined) {
+                    const ysInput = document.getElementById('year_start');
+                    if (ysInput) ysInput.value = d.year_start;
+                }
+                if (d.year_end !== null && d.year_end !== undefined) {
+                    const yeInput = document.getElementById('year_end');
+                    if (yeInput) yeInput.value = d.year_end;
+                }
+                if (d.condition_grade) {
+                    const condSelect = document.getElementById('condition_grade');
+                    if (condSelect) {
+                        for (let opt of condSelect.options) {
+                            if (opt.value.toLowerCase() === d.condition_grade.toLowerCase()) {
+                                condSelect.value = opt.value;
+                                break;
+                            }
+                        }
+                    }
+                }
+                if (d.avers_description) {
+                    const avDesc = document.getElementById('avers_description');
+                    if (avDesc) avDesc.value = d.avers_description;
+                }
+                if (d.revers_description) {
+                    const rvDesc = document.getElementById('revers_description');
+                    if (rvDesc) rvDesc.value = d.revers_description;
+                }
+                if (d.estimated_value_min) {
+                    const minPrice = document.getElementById('estimated_value_min');
+                    if (minPrice) minPrice.value = d.estimated_value_min;
+                }
+                if (d.estimated_value_max) {
+                    const maxPrice = document.getElementById('estimated_value_max');
+                    if (maxPrice) maxPrice.value = d.estimated_value_max;
+                }
+
+                // Referans Kodları
+                if (d.reference_codes) {
+                    const refInput = document.getElementById('reference_codes_raw');
+                    if (refInput) {
+                        if (typeof d.reference_codes === 'object') {
+                            refInput.value = Object.entries(d.reference_codes).map(([k, v]) => `${k}: ${v}`).join('\n');
+                        } else {
+                            refInput.value = d.reference_codes;
+                        }
+                    }
+                }
+
+                // Görselleri Güncelle
+                if (d.avers_image && d.avers_image_url) {
+                    const aversHidden = document.getElementById('avers_image');
+                    if (aversHidden) aversHidden.value = d.avers_image;
+                    const aversPrev = document.getElementById('avers-preview');
+                    if (aversPrev) aversPrev.src = d.avers_image_url;
+                }
+                if (d.revers_image && d.revers_image_url) {
+                    const reversHidden = document.getElementById('revers_image');
+                    if (reversHidden) reversHidden.value = d.revers_image;
+                    const reversPrev = document.getElementById('revers-preview');
+                    if (reversPrev) reversPrev.src = d.revers_image_url;
+                }
+
+                statusBox.style.background = '#ECFDF5';
+                statusBox.style.color = '#065F46';
+                statusBox.style.border = '1px solid #A7F3D0';
+                statusBox.innerHTML = '✨ <strong>Eser bilgileri başarıyla çekildi, Türkçeleştirildi ve form dolduruldu. Lütfen kontrol edip kaydedin.</strong>';
+            } else {
+                throw new Error(res.message || 'Veriler alınamadı.');
+            }
+        } catch (err) {
+            statusBox.style.background = '#FEF2F2';
+            statusBox.style.color = '#991B1B';
+            statusBox.style.border = '1px solid #FECACA';
+            statusBox.innerHTML = '❌ <strong>Hata:</strong> ' + (err.message || 'Bir hata oluştu.');
+        } finally {
+            btn.disabled = false;
+            btnText.innerText = 'Verileri Çek & Doldur';
+            spinner.style.display = 'none';
+            icon.style.display = 'inline-block';
         }
     }
 </script>
