@@ -28,6 +28,7 @@ export default function RootLayout() {
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="map" options={{ headerShown: false }} />
         <Stack.Screen name="dynasties" options={{ headerShown: false }} />
+        <Stack.Screen name="legal-guide" options={{ headerShown: false }} />
         <Stack.Screen name="coin/[id]" options={{ headerShown: false }} />
         <Stack.Screen name="certificate/[id]" options={{ headerShown: false }} />
       </Stack>

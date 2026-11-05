@@ -17,6 +17,7 @@ import { Ionicons } from '@expo/vector-icons';
 
 import { CoinCard } from '@/components/CoinCard';
 import { FilterModal } from '@/components/FilterModal';
+import { MainMenuModal } from '@/components/MainMenuModal';
 import { BorderRadius, BottomTabInset, Colors, MaxContentWidth, Spacing } from '@/constants/theme';
 import { CATEGORIES } from '@/data/categories';
 import {
@@ -80,6 +81,7 @@ export default function HomeScreen() {
   const [selectedCivilization, setSelectedCivilization] = useState(params.civ ?? 'Tümü');
   const [selectedPreset, setSelectedPreset] = useState<string>('all');
   const [filterModalVisible, setFilterModalVisible] = useState(false);
+  const [mainMenuVisible, setMainMenuVisible] = useState(false);
   const [filters, setFilters] = useState<FilterState>(DEFAULT_FILTER_STATE);
 
   useEffect(() => {
@@ -438,39 +440,6 @@ export default function HomeScreen() {
 
           <View style={styles.headerRightCol}>
             <View style={styles.headerActions}>
-              {/* Hanedanlar & İmparatorlar Soyağacı Butonu */}
-              <TouchableOpacity
-                activeOpacity={0.75}
-                onPress={() => router.push('/dynasties' as any)}
-                style={[
-                  styles.actionBtn,
-                  { backgroundColor: colors.surface, borderColor: colors.border },
-                ]}>
-                <Ionicons name="git-network-outline" size={17} color={colors.primary} />
-              </TouchableOpacity>
-
-              {/* Antik Darphaneler Atlası Harita Butonu */}
-              <TouchableOpacity
-                activeOpacity={0.75}
-                onPress={() => router.push('/map')}
-                style={[
-                  styles.actionBtn,
-                  { backgroundColor: colors.surface, borderColor: colors.border },
-                ]}>
-                <Ionicons name="map-outline" size={17} color={colors.primary} />
-              </TouchableOpacity>
-
-              {/* Sözlük Butonu */}
-              <TouchableOpacity
-                activeOpacity={0.75}
-                onPress={() => router.push('/(tabs)/glossary' as any)}
-                style={[
-                  styles.actionBtn,
-                  { backgroundColor: colors.surface, borderColor: colors.border },
-                ]}>
-                <Ionicons name="book-outline" size={18} color={colors.primary} />
-              </TouchableOpacity>
-
               {/* Bildirim Butonu */}
               <TouchableOpacity
                 activeOpacity={0.75}
@@ -480,6 +449,17 @@ export default function HomeScreen() {
                 ]}>
                 <Ionicons name="notifications-outline" size={18} color={colors.textPrimary} />
                 <View style={[styles.notificationDot, { backgroundColor: colors.primary }]} />
+              </TouchableOpacity>
+
+              {/* Üç Çizgili Ana Menü Butonu (Hamburger Menü) */}
+              <TouchableOpacity
+                activeOpacity={0.75}
+                onPress={() => setMainMenuVisible(true)}
+                style={[
+                  styles.hamburgerBtn,
+                  { backgroundColor: '#FBF5E8', borderColor: 'rgba(158, 123, 59, 0.45)' },
+                ]}>
+                <Ionicons name="menu-outline" size={22} color={colors.primary} />
               </TouchableOpacity>
             </View>
 
@@ -986,6 +966,12 @@ export default function HomeScreen() {
           setFilters(newFilters);
         }}
       />
+
+      {/* 7. ÜÇ ÇİZGİLİ ANA MENÜ ÇEKMECESİ */}
+      <MainMenuModal
+        visible={mainMenuVisible}
+        onClose={() => setMainMenuVisible(false)}
+      />
     </View>
   );
 }
@@ -1069,6 +1055,19 @@ const styles = StyleSheet.create({
     width: 6,
     height: 6,
     borderRadius: 3,
+  },
+  hamburgerBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#9E7B3B',
+    shadowOffset: { width: 0, height: 1.5 },
+    shadowOpacity: 0.15,
+    shadowRadius: 3,
+    elevation: 2,
   },
   // Arama ve Filtreleme Satırı
   searchFilterRow: {

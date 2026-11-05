@@ -19,6 +19,7 @@ import { Ionicons } from '@expo/vector-icons';
 
 import { BorderRadius, Colors, MaxContentWidth, Spacing } from '@/constants/theme';
 import { AuctionValueIndex } from '@/components/AuctionValueIndex';
+import { NumismaticLiteratureCard } from '@/components/NumismaticLiteratureCard';
 import { getCoinById, MOCK_COINS } from '@/data/mockData';
 import { useTheme } from '@/hooks/use-theme';
 
@@ -556,6 +557,9 @@ export default function CoinDetailScreen() {
 
           {/* 8. MÜZAYEDE SATIŞ İNDEKSİ VE DEĞER GRAFİĞİ BİLEŞENİ */}
           <AuctionValueIndex coin={coin} />
+
+          {/* 9. STANDART NÜMİZMATİK LİTERATÜR & REFERANSLAR KARTI */}
+          <NumismaticLiteratureCard coin={coin} />
         </View>
       </ScrollView>
 

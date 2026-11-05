@@ -1,14 +1,11 @@
 import React, { useMemo, useState } from 'react';
 import {
   Dimensions,
-  Modal,
   Platform,
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
-  TouchableWithoutFeedback,
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -151,14 +148,6 @@ export const AuctionValueIndex: React.FC<AuctionValueIndexProps> = ({ coin }) =>
   // Seçili Grafik Noktası (varsayılan en son yıl)
   const [selectedPointIndex, setSelectedPointIndex] = useState<number>(4);
 
-  // Değerleme Talep Modalı Durumu
-  const [isAppraisalModalVisible, setIsAppraisalModalVisible] = useState(false);
-  const [appraisalCondition, setAppraisalCondition] = useState('EF / XF (Çok Temiz)');
-  const [appraisalCert, setAppraisalCert] = useState('NGC Ancients Sertifikalı');
-  const [userEmail, setUserEmail] = useState('');
-  const [userNote, setUserNote] = useState('');
-  const [isSubmittedSuccess, setIsSubmittedSuccess] = useState(false);
-
   // Grafik Boyutları
   const chartWidth = Math.max(SCREEN_WIDTH - 64, 300);
   const chartHeight = 175;
@@ -209,16 +198,6 @@ export const AuctionValueIndex: React.FC<AuctionValueIndexProps> = ({ coin }) =>
   }, [linePath, points]);
 
   const activePoint = points[selectedPointIndex] || points[points.length - 1];
-
-  const handleSubmitAppraisal = () => {
-    setIsSubmittedSuccess(true);
-    setTimeout(() => {
-      setIsSubmittedSuccess(false);
-      setIsAppraisalModalVisible(false);
-      setUserEmail('');
-      setUserNote('');
-    }, 2200);
-  };
 
   return (
     <View style={styles.container}>
@@ -444,176 +423,6 @@ export const AuctionValueIndex: React.FC<AuctionValueIndexProps> = ({ coin }) =>
           ))}
         </View>
       </View>
-
-      {/* 5. "KOLEKSİYONUM İÇİN DEĞERLEME TALEP ET" AKSİYON ÇAĞRISI (CTA) */}
-      <View style={styles.ctaWrapper}>
-        <View style={styles.ctaCard}>
-          <View style={styles.ctaIconRing}>
-            <Ionicons name="shield-checkmark" size={26} color="#FFFFFF" />
-          </View>
-
-          <View style={{ flex: 1, paddingRight: 8 }}>
-            <Text style={styles.ctaTitle}>Bu Eserin Bir Benzerine mi Sahipsiniz?</Text>
-            <Text style={styles.ctaDesc}>
-              Uzman nümizmat heyetimizden koleksiyonunuzdaki sikke için profesyonel kondisyon ve müzayede değerleme raporu talep edin.
-            </Text>
-          </View>
-        </View>
-
-        <TouchableOpacity
-          activeOpacity={0.88}
-          onPress={() => setIsAppraisalModalVisible(true)}
-          style={styles.ctaButton}>
-          <Ionicons name="sparkles" size={17} color="#FFFFFF" />
-          <Text style={styles.ctaButtonText}>
-            Koleksiyonum İçin Değerleme Talep Et
-          </Text>
-          <Ionicons name="arrow-forward" size={17} color="#FFFFFF" />
-        </TouchableOpacity>
-      </View>
-
-      {/* 6. DEĞERLEME TALEP MODALI (EXPERT APPRAISAL MODAL) */}
-      <Modal
-        visible={isAppraisalModalVisible}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setIsAppraisalModalVisible(false)}>
-        <View style={styles.modalOverlay}>
-          <TouchableWithoutFeedback onPress={() => setIsAppraisalModalVisible(false)}>
-            <View style={styles.modalBackdrop} />
-          </TouchableWithoutFeedback>
-
-          <View style={styles.modalSheet}>
-            {/* Tutamaç */}
-            <View style={styles.dragHandle} />
-
-            {/* Modal Başlık */}
-            <View style={styles.modalHeader}>
-              <View style={styles.modalHeaderTitleGroup}>
-                <Ionicons name="ribbon" size={20} color={PALETTE.goldPrimary} />
-                <View>
-                  <Text style={styles.modalTitleText}>Nümizmatik Değerleme Talebi</Text>
-                  <Text style={styles.modalSubtitleText}>{coin.title}</Text>
-                </View>
-              </View>
-
-              <TouchableOpacity
-                onPress={() => setIsAppraisalModalVisible(false)}
-                style={styles.modalCloseBtn}>
-                <Ionicons name="close" size={20} color="#1A1D20" />
-              </TouchableOpacity>
-            </View>
-
-            {isSubmittedSuccess ? (
-              // Başarı Ekranı
-              <View style={styles.successBox}>
-                <View style={styles.successIconCircle}>
-                  <Ionicons name="checkmark" size={32} color="#FFFFFF" />
-                </View>
-                <Text style={styles.successTitle}>Değerleme Talebiniz Alındı!</Text>
-                <Text style={styles.successSubtitle}>
-                  Uzman nümizmatlarımız sikkenizin piyasa verilerini ve kondisyonunu inceleyerek 24 saat içinde ekspertiz raporunuzu hazırlayacaktır.
-                </Text>
-              </View>
-            ) : (
-              // Form Ekranı
-              <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 460 }}>
-                {/* 1. Kondisyon Notu Tercihi */}
-                <Text style={styles.formSectionLabel}>ELİNİZDEKİ SİKKENİN KONDİSYONU</Text>
-                <View style={styles.optionsWrap}>
-                  {[
-                    'FDC / MS (Kusursuz Çil)',
-                    'EF / XF (Çok Temiz)',
-                    'VF (Temiz)',
-                    'Fine (Orta)',
-                  ].map((cond) => (
-                    <TouchableOpacity
-                      key={cond}
-                      onPress={() => setAppraisalCondition(cond)}
-                      style={[
-                        styles.optionChip,
-                        appraisalCondition === cond && styles.optionChipActive,
-                      ]}>
-                      <Text
-                        style={[
-                          styles.optionChipText,
-                          appraisalCondition === cond && styles.optionChipTextActive,
-                        ]}>
-                        {cond}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-
-                {/* 2. Sertifikasyon */}
-                <Text style={styles.formSectionLabel}>DERECELEME VE SERTİFİKA</Text>
-                <View style={styles.optionsWrap}>
-                  {[
-                    'NGC Ancients Sertifikalı',
-                    'PCGS Slabbed',
-                    'Sertifikasız (Ham / Koleksiyon)',
-                  ].map((cert) => (
-                    <TouchableOpacity
-                      key={cert}
-                      onPress={() => setAppraisalCert(cert)}
-                      style={[
-                        styles.optionChip,
-                        appraisalCert === cert && styles.optionChipActive,
-                      ]}>
-                      <Text
-                        style={[
-                          styles.optionChipText,
-                          appraisalCert === cert && styles.optionChipTextActive,
-                        ]}>
-                        {cert}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-
-                {/* 3. E-Posta / İletişim */}
-                <Text style={styles.formSectionLabel}>İLETİŞİM E-POSTA ADRESİ</Text>
-                <View style={styles.inputContainer}>
-                  <Ionicons name="mail-outline" size={17} color="#94A3B8" style={{ marginRight: 8 }} />
-                  <TextInput
-                    value={userEmail}
-                    onChangeText={setUserEmail}
-                    placeholder="ornek@koleksiyoncu.com"
-                    placeholderTextColor="#94A3B8"
-                    keyboardType="email-address"
-                    autoCapitalize="none"
-                    style={styles.textInput}
-                  />
-                </View>
-
-                {/* 4. Ek Detaylar / Notlar */}
-                <Text style={styles.formSectionLabel}>NOTLAR VE AYIRT EDİCİ İŞARETLER</Text>
-                <View style={[styles.inputContainer, { height: 75, alignItems: 'flex-start' }]}>
-                  <TextInput
-                    value={userNote}
-                    onChangeText={setUserNote}
-                    placeholder="Sikkenin gramajı, patina rengi veya nereden temin edildiği..."
-                    placeholderTextColor="#94A3B8"
-                    multiline
-                    style={[styles.textInput, { paddingTop: 8 }]}
-                  />
-                </View>
-
-                {/* Onay Butonu */}
-                <TouchableOpacity
-                  activeOpacity={0.88}
-                  onPress={handleSubmitAppraisal}
-                  style={styles.modalSubmitButton}>
-                  <Ionicons name="send" size={16} color="#FFFFFF" />
-                  <Text style={styles.modalSubmitButtonText}>
-                    Ekspertiz Talebini Gönder
-                  </Text>
-                </TouchableOpacity>
-              </ScrollView>
-            )}
-          </View>
-        </View>
-      </Modal>
     </View>
   );
 };

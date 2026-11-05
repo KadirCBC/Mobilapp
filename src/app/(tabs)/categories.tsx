@@ -16,6 +16,7 @@ import { Ionicons } from '@expo/vector-icons';
 
 import { BorderRadius, BottomTabInset, Colors, Spacing } from '@/constants/theme';
 import { CATEGORIES, CivilizationCategory } from '@/data/categories';
+import { MainMenuModal } from '@/components/MainMenuModal';
 import { useTheme } from '@/hooks/use-theme';
 
 const ANDROID_TOP_SPACING = (RNStatusBar.currentHeight ?? 24) + 8;
@@ -26,6 +27,7 @@ export default function CategoriesScreen() {
   const colors = theme ?? Colors.light;
 
   const [searchQuery, setSearchQuery] = useState('');
+  const [mainMenuVisible, setMainMenuVisible] = useState(false);
 
   // Arama filtresi
   const filteredCategories = useMemo(() => {
@@ -140,26 +142,19 @@ export default function CategoriesScreen() {
             <Text style={styles.headerEyebrow}>MEDENİYETLER VE DÖNEMLER</Text>
             <Text style={styles.headerTitle}>Tarihsel Nümismatik Atlası</Text>
           </View>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-            <TouchableOpacity
-              activeOpacity={0.8}
-              onPress={() => router.push('/dynasties' as any)}
-              style={[styles.mapShortcutBtn, { backgroundColor: '#FBF5E8', borderWidth: 1, borderColor: 'rgba(158, 123, 59, 0.4)' }]}>
-              <Ionicons name="git-network" size={13} color="#9E7B3B" />
-              <Text style={[styles.mapShortcutBtnText, { color: '#9E7B3B' }]}>Soyağacı</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              activeOpacity={0.8}
-              onPress={() => router.push('/map')}
-              style={styles.mapShortcutBtn}>
-              <Ionicons name="map" size={14} color="#FFFFFF" />
-              <Text style={styles.mapShortcutBtnText}>Harita</Text>
-            </TouchableOpacity>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
             <View style={styles.atlasBadge}>
-              <Ionicons name="earth" size={15} color="#9E7B3B" />
+              <Ionicons name="earth" size={13} color="#9E7B3B" />
               <Text style={styles.atlasBadgeText}>{CATEGORIES.length} Çağ</Text>
             </View>
+
+            {/* Üç Çizgili Ana Menü Butonu (Hamburger) */}
+            <TouchableOpacity
+              activeOpacity={0.75}
+              onPress={() => setMainMenuVisible(true)}
+              style={styles.hamburgerBtn}>
+              <Ionicons name="menu-outline" size={22} color="#9E7B3B" />
+            </TouchableOpacity>
           </View>
         </View>
 
@@ -209,6 +204,12 @@ export default function CategoriesScreen() {
             </Text>
           </View>
         }
+      />
+
+      {/* ÜÇ ÇİZGİLİ ANA MENÜ ÇEKMECESİ */}
+      <MainMenuModal
+        visible={mainMenuVisible}
+        onClose={() => setMainMenuVisible(false)}
       />
     </View>
   );
@@ -282,6 +283,21 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
     color: '#9E7B3B',
+  },
+  hamburgerBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: BorderRadius.md,
+    backgroundColor: '#FBF5E8',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1.5,
+    borderColor: 'rgba(158, 123, 59, 0.45)',
+    shadowColor: '#9E7B3B',
+    shadowOffset: { width: 0, height: 1.5 },
+    shadowOpacity: 0.15,
+    shadowRadius: 3,
+    elevation: 2,
   },
 
   // Arama Çubuğu
