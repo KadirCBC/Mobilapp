@@ -332,7 +332,8 @@ export default function HomeScreen() {
 
   // Çok Kriterli Gelişmiş Süzme (Akıllı Rozetler + Arama + Madenler + Medeniyetler + Çağlar + Sıralama)
   const filteredCoins = useMemo(() => {
-    const sourceList = (coins && coins.length > 0) ? coins : MOCK_COINS;
+    // Sunucudan veri çekildiyse direkt canlı MySQL verisini kullan (boş [] olsa dahi mock listeye düşme)
+    const sourceList = hasLoadedFromServer ? coins : (coins.length > 0 ? coins : []);
     let list = sourceList.filter((coin) => {
       // 0. Akıllı Filtre Rozetleri (Smart Presets)
       if (selectedPreset !== 'all') {
@@ -520,10 +521,10 @@ export default function HomeScreen() {
     }
 
     return list;
-  }, [coins, searchQuery, filters, selectedCivilization, selectedPreset]);
+  }, [coins, hasLoadedFromServer, searchQuery, filters, selectedCivilization, selectedPreset]);
 
-  // Canlı katalogdaki toplam eser sayısı (MySQL veritabanı veya mock fallback)
-  const totalCatalogCount = (coins && coins.length > 0) ? coins.length : (totalServerCount || MOCK_COINS.length);
+  // Canlı katalogdaki toplam eser sayısı (MySQL veritabanı canlı sayısı)
+  const totalCatalogCount = hasLoadedFromServer ? coins.length : (totalServerCount || 0);
 
   const handleCoinPress = (id: string) => {
     router.push(`/coin/${id}` as any);
@@ -722,7 +723,7 @@ export default function HomeScreen() {
         ListHeaderComponent={
           <>
             {/* 2. GÜNÜN / HAFTANIN NADİR ESERİ (FEATURED HERO BANNER) */}
-            {searchQuery === '' && selectedCivilization === 'Tümü' && activeFilterCount === 0 && (
+            {searchQuery === '' && selectedCivilization === 'Tümü' && activeFilterCount === 0 && featuredCoin && (
               <TouchableOpacity
                 activeOpacity={0.92}
                 onPress={() => handleCoinPress(featuredCoin.id)}
@@ -1071,23 +1072,29 @@ export default function HomeScreen() {
           ) : (
             <View style={styles.emptyCard}>
               <View style={styles.emptyIconCircle}>
-                <Ionicons name="search-outline" size={32} color={colors.primary} />
+                <Ionicons name={searchQuery !== '' || activeFilterCount > 0 ? "search-outline" : "file-tray-outline"} size={32} color={colors.primary} />
               </View>
               <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>
-                Kriterlere Uygun Tarihi Eser Bulunamadı
+                {searchQuery !== '' || activeFilterCount > 0
+                  ? 'Kriterlere Uygun Tarihi Eser Bulunamadı'
+                  : 'Veritabanında Henüz Sikke Bulunmuyor'}
               </Text>
               <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>
-                Belirlediğiniz arama terimi veya filtre kombinasyonuna uyan sikke bulunamadı. Lütfen filtrelerinizi gevşetin veya sıfırlayın.
+                {searchQuery !== '' || activeFilterCount > 0
+                  ? 'Belirlediğiniz arama terimi veya filtre kombinasyonuna uyan sikke bulunamadı. Lütfen filtrelerinizi gevşetin veya sıfırlayın.'
+                  : 'Admin panelinden tüm demo sikkeler temizlendi. Yeni bir nümizmatik sikke eklediğinizde burada anında listelenecektir.'}
               </Text>
               <TouchableOpacity
                 activeOpacity={0.8}
-                onPress={handleResetAllFilters}
+                onPress={searchQuery !== '' || activeFilterCount > 0 ? handleResetAllFilters : () => fetchCoins(1, true)}
                 style={[
                   styles.emptyResetBtn,
                   { backgroundColor: colors.primary },
                 ]}>
                 <Ionicons name="refresh-outline" size={15} color="#FFFFFF" />
-                <Text style={styles.emptyResetBtnText}>Filtreleri Sıfırla</Text>
+                <Text style={styles.emptyResetBtnText}>
+                  {searchQuery !== '' || activeFilterCount > 0 ? 'Filtreleri Sıfırla' : 'Yenile'}
+                </Text>
               </TouchableOpacity>
             </View>
           )

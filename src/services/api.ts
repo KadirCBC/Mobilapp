@@ -1,13 +1,21 @@
 import { Platform } from 'react-native';
+import Constants from 'expo-constants';
 import { CoinItem, MOCK_COINS } from '@/data/mockData';
 
 /**
  * Nümizmatik Yerel / cPanel API İstemcisi
- * Yerel Geliştirme (Localhost): http://localhost:8000/api/v1
- * Android Emülatör: http://10.0.2.2:8000/api/v1
- * Canlı Prodüksiyon: https://paneliniz.com/api/v1
+ * Hem Android Emülatör (10.0.2.2 / LAN), hem iOS, hem Web için dinamik IP tespiti
  */
-export const API_HOST = Platform.OS === 'android' ? 'http://10.0.2.2:8000' : 'http://localhost:8000';
+function getApiHost(): string {
+  // Expo debugger IP'sini al (192.168.x.x gibi - hem emülatör hem gerçek cihaz için %100 garantili)
+  const debuggerHost = Constants.expoConfig?.hostUri?.split(':')[0];
+  if (debuggerHost) {
+    return `http://${debuggerHost}:8000`;
+  }
+  return Platform.OS === 'android' ? 'http://10.0.2.2:8000' : 'http://localhost:8000';
+}
+
+export const API_HOST = getApiHost();
 export const API_BASE_URL = `${API_HOST}/api/v1`;
 
 export interface BackendCivilization {
@@ -266,20 +274,11 @@ export const api = {
             total: (res && typeof res.total === 'number') ? res.total : coinItems.length,
           },
         };
-      } catch {
-        // Canlı API henüz DNS olarak yönlenmemişse kesintisiz çalışma için arşiv mock listesi ile yanıt ver
-        let filtered = [...MOCK_COINS];
-        if (params.q) {
-          const qLower = params.q.toLowerCase();
-          filtered = filtered.filter((c) =>
-            c.title.toLowerCase().includes(qLower) ||
-            c.ruler.toLowerCase().includes(qLower) ||
-            c.civilization.toLowerCase().includes(qLower)
-          );
-        }
+      } catch (err) {
+        console.warn('[api.coins.list] Bağlantı veya API hatası:', err);
         return {
-          data: filtered,
-          meta: { current_page: 1, last_page: 1, per_page: 20, total: filtered.length },
+          data: [],
+          meta: { current_page: 1, last_page: 1, per_page: 20, total: 0 },
         };
       }
     },
