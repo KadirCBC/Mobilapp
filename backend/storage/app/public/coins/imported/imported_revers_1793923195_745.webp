@@ -1,0 +1,76 @@
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+    <head><title>
+
+</title><link rel="stylesheet" type="text/css" media="all" href="/css/style.css" />
+        <script type="text/javascript" src="/js/jquery.min.js"></script> 
+        <script type="text/javascript" src="/js/fancybox.js"></script> 
+        <script type="text/javascript" src="/js/async.js"></script>
+    <meta name="robots" content="noindex, nofollow" /></head>
+    <body>
+        <form method="post" action="./Default.aspx?languageCode=en&amp;action=inquiryaboutthisitem&amp;IdLanguage=1&amp;IdProduct=2436324&amp;messageType=store" id="form1">
+<div class="aspNetHidden">
+<input type="hidden" name="__VIEWSTATE" id="__VIEWSTATE" value="QuZ8YDS8xVRaZ66O7AZkjkvKZyWfpL6ZuzaYZuuXM+1WMQsCeuozwiOlqtOytkHMlVppYNc5EmxsEGWXc8XVNyP1IKxmhTg8XerYtno+o3A=" />
+</div>
+
+<div class="aspNetHidden">
+
+	<input type="hidden" name="__VIEWSTATEGENERATOR" id="__VIEWSTATEGENERATOR" value="C0D10187" />
+	<input type="hidden" name="__EVENTTARGET" id="__EVENTTARGET" value="" />
+	<input type="hidden" name="__EVENTARGUMENT" id="__EVENTARGUMENT" value="" />
+	<input type="hidden" name="__EVENTVALIDATION" id="__EVENTVALIDATION" value="yXXAh7JIG6J98+HVdqHh8icL+hMDvQGF8B0EhgHxYmKFkvVkCaw0RepT/GlNanBpEob87ZhXXjbA5t5DiLiamk5IOOqwha4nNZcEbiPIt+7znXqlyOKZFbpSa3lT1NRW+DNOoTsJLTsgx4vL39Bpspd6Qnfj59k+d2ZO+JtXpiQ=" />
+</div>
+            
+            <div id="pnlLogin" onkeypress="javascript:return WebForm_FireDefaultButton(event, &#39;cmdLogin&#39;)">
+	
+                        <div class="popup-box">
+                            <div class="fancy-inner">
+                                <div class="heading">Login</div>
+                            </div>
+                            <div class="popup-inner">
+                                
+                                
+								<div id="divInquiryAboutThisItem" class="message-popup">In order to inquire about an item you must first sign in to your account. If you don’t have one, you will need to create it.</div>
+                                <div class="popup-form">
+                                    <label>User ID or Email:</label>
+                                    <input name="txtUsername" type="text" id="txtUsername" />
+                                </div>
+                                <div class="popup-form">
+                                    <label>Password:</label>
+                                    <input name="txtPassword" type="password" id="txtPassword" autocomplete="new-password" />
+                                </div>
+                                <input type="submit" name="cmdLogin" value="Login" id="cmdLogin" class="btn" />
+                                <p><span id="litError" class="message-error"></span></p>
+                                <p><a href="/modules/main/login/RecoverPassword.aspx?idLanguage=1" id="recoverpassword">Forgot your password?</a></p>
+                                <p><a href="/en/Register.aspx" target="_parent">Register</a></p>
+                            </div>
+                        </div>
+                    
+</div>
+            
+        
+<script type="text/javascript">
+//<![CDATA[
+var theForm = document.forms['form1'];
+if (!theForm) {
+    theForm = document.form1;
+}
+function __doPostBack(eventTarget, eventArgument) {
+    if (!theForm.onsubmit || (theForm.onsubmit() != false)) {
+        theForm.__EVENTTARGET.value = eventTarget;
+        theForm.__EVENTARGUMENT.value = eventArgument;
+        theForm.submit();
+    }
+}
+//]]>
+</script>
+
+
+<script src="/WebResource.axd?d=pynGkmcFUV13He1Qd6_TZF_BG77Z9_2rHyaW-qx6aqZdaEEJNYjZkBszZYiuwdTawAq9B_Eq9S59oQBzYMm3KA2&amp;t=637814444020000000" type="text/javascript"></script>
+</form>
+    </body>
+</html>
+

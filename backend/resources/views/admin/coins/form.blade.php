@@ -206,37 +206,37 @@
         </div>
     @endif
 
-    <!-- ⚡ Altın Vurgulu Otomatik Veri Çekme & AI Çeviri Barı (#9E7B3B) -->
-    <div class="card" style="background: linear-gradient(135deg, #FBF8F2 0%, #FFFFFF 100%); border: 2px solid #9E7B3B; border-radius: 16px; padding: 22px 28px; margin-bottom: 24px; box-shadow: 0 4px 20px -2px rgba(158, 123, 59, 0.15);">
-        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
+    <!-- ⚡ Akıllı Dış Bağlantı Ayrıştırıcı (#F8F9FA zemin, #FFFFFF kart, #9E7B3B antik altın aksanlar) -->
+    <div class="card" style="background: #FFFFFF; border: 2px solid #9E7B3B; border-radius: 16px; padding: 22px 28px; margin-bottom: 24px; box-shadow: 0 4px 20px -2px rgba(158, 123, 59, 0.15);">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; flex-wrap: wrap; gap: 8px;">
             <div style="display: flex; align-items: center; gap: 10px;">
-                <div style="width: 32px; height: 32px; border-radius: 8px; background: rgba(158, 123, 59, 0.15); display: flex; align-items: center; justify-content: center; color: #9E7B3B;">
+                <div style="width: 34px; height: 34px; border-radius: 8px; background: rgba(158, 123, 59, 0.12); display: flex; align-items: center; justify-content: center; color: #9E7B3B;">
                     <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>
                 </div>
                 <div>
                     <h3 style="font-family: 'Cinzel', serif; font-size: 16px; font-weight: 700; color: #1A1D20; margin: 0;">
-                        Dış Bağlantıdan Otomatik İçe Aktar (VCoins vb.)
+                        Akıllı Dış Bağlantı Ayrıştırıcı
                     </h3>
                     <p style="font-size: 12px; color: #64748B; margin: 2px 0 0 0;">
-                        Google Gemini 1.5 nümizmatik AI motoru ile İngilizce açıklamaları Türkçeleştirir ve görselleri WebP olarak kaydeder.
+                        VCoins ve benzeri nümizmatik mağazalardan tek tıkla eser bilgilerini ve fotoğraflarını çekip Türkçeleştirin.
                     </p>
                 </div>
             </div>
-            <span style="background: #9E7B3B; color: #FFFFFF; font-size: 10.5px; font-weight: 800; letter-spacing: 0.6px; padding: 4px 10px; border-radius: 20px;">
-                YAPAY ZEKA ENTEGRASYONU
+            <span style="background: #9E7B3B; color: #FFFFFF; font-size: 11px; font-weight: 700; letter-spacing: 0.6px; padding: 4px 12px; border-radius: 20px;">
+                GEMINI 1.5 AI DESTEKLİ
             </span>
         </div>
 
-        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-            <input type="url" id="scraper_url" class="form-control" placeholder="https://www.vcoins.com/en/stores/..." style="flex: 1; min-width: 300px; background: #FFFFFF; border-color: rgba(158, 123, 59, 0.4); font-size: 13.5px;">
-            <button type="button" id="btn_fetch_url" class="btn btn-gold" onclick="fetchCoinFromUrl()" style="white-space: nowrap; display: inline-flex; align-items: center; gap: 8px; padding: 11px 24px; font-weight: 700; background: #9E7B3B; border-color: #9E7B3B;">
-                <span id="fetch_spinner" style="display: none; width: 14px; height: 14px; border: 2px solid #FFF; border-top-color: transparent; border-radius: 50%; animation: spin 0.8s linear infinite;"></span>
+        <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
+            <input type="url" id="import_url" class="form-control" placeholder="https://www.vcoins.com/en/stores/... linkini buraya yapıştırın" style="flex: 1; min-width: 320px; background: #F8F9FA; border-color: rgba(158, 123, 59, 0.4); font-size: 13.5px; padding: 11px 16px;">
+            <button type="button" id="btn_fetch_coin" class="btn btn-gold" style="white-space: nowrap; display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 11px 24px; font-weight: 700; background: #9E7B3B; border-color: #9E7B3B; color: #FFFFFF; border-radius: 8px; cursor: pointer; transition: all 0.2s ease;">
+                <span id="fetch_spinner" style="display: none; width: 15px; height: 15px; border: 2px solid #FFF; border-top-color: transparent; border-radius: 50%; animation: spin 0.8s linear infinite;"></span>
                 <svg id="fetch_icon" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 12a9 9 0 0 1-9 9m9-9a9 9 0 0 0-9-9m9 9H3m9 9a9 9 0 0 1-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9"></path></svg>
-                <span id="fetch_btn_text">Verileri Getir ve Çevir</span>
+                <span id="fetch_btn_text">Eseri Getir & Yapay Zeka ile Çevir</span>
             </button>
         </div>
 
-        <div id="fetch_status_box" style="display: none; margin-top: 14px; padding: 12px 16px; border-radius: 10px; font-size: 13px; font-weight: 500;"></div>
+        <div id="fetch_status_box" style="display: none; margin-top: 14px; padding: 13px 18px; border-radius: 10px; font-size: 13.5px; font-weight: 500;"></div>
     </div>
 
     <!-- 4 Sekmeli Navigasyon Çubuğu -->
@@ -267,6 +267,8 @@
 
         <input type="hidden" name="avers_image" id="avers_image" value="{{ old('avers_image', $coin->avers_image) }}">
         <input type="hidden" name="revers_image" id="revers_image" value="{{ old('revers_image', $coin->revers_image) }}">
+        <input type="hidden" name="avers_imported_path" id="avers_imported_path" value="{{ old('avers_imported_path') }}">
+        <input type="hidden" name="revers_imported_path" id="revers_imported_path" value="{{ old('revers_imported_path') }}">
 
         <!-- SEKME 1: Temel Bilgiler -->
         <div id="tab-basic" class="tab-content active">
@@ -346,12 +348,16 @@
 
                     <div class="form-group">
                         <label class="form-label" for="die_axis">Kalıp Açısı (Die Axis)</label>
-                        <select name="die_axis" id="die_axis" class="form-control">
-                            <option value="">Seçiniz</option>
-                            @foreach(['12h', '6h', '1h', '2h', '3h', '7h', '9h'] as $axis)
-                                <option value="{{ $axis }}" {{ old('die_axis', $coin->die_axis) === $axis ? 'selected' : '' }}>{{ $axis }}</option>
-                            @endforeach
-                        </select>
+                        <input type="text" name="die_axis" id="die_axis" list="die_axis_list" class="form-control" value="{{ old('die_axis', $coin->die_axis) }}" placeholder="Örn: 12h, 6h">
+                        <datalist id="die_axis_list">
+                            <option value="12h">
+                            <option value="6h">
+                            <option value="1h">
+                            <option value="2h">
+                            <option value="3h">
+                            <option value="7h">
+                            <option value="9h">
+                        </datalist>
                     </div>
                 </div>
 
@@ -393,6 +399,15 @@
         <!-- SEKME 3: Görseller & Rölyef -->
         <div id="tab-images" class="tab-content">
             <div class="card">
+                @php
+                    $placeholderSvg = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='130' height='130' viewBox='0 0 130 130'><circle cx='65' cy='65' r='61' fill='%23FBF8F2' stroke='%239E7B3B' stroke-width='3' stroke-dasharray='4 2'/><circle cx='65' cy='65' r='52' fill='none' stroke='%239E7B3B' stroke-width='1.5'/><text x='50%' y='48%' dominant-baseline='middle' text-anchor='middle' font-family='serif' font-weight='bold' font-size='18' fill='%239E7B3B'>SİKKE</text><text x='50%' y='64%' dominant-baseline='middle' text-anchor='middle' font-family='sans-serif' font-size='10' fill='%2364748B'>FOTOĞRAF YÜKLE</text></svg>";
+                    $aversFormSrc = !empty($coin->avers_image)
+                        ? (str_starts_with($coin->avers_image, 'http') ? $coin->avers_image : asset('storage/' . ltrim($coin->avers_image, '/')))
+                        : $placeholderSvg;
+                    $reversFormSrc = !empty($coin->revers_image)
+                        ? (str_starts_with($coin->revers_image, 'http') ? $coin->revers_image : asset('storage/' . ltrim($coin->revers_image, '/')))
+                        : $placeholderSvg;
+                @endphp
                 <div class="form-grid-2">
                     <!-- Ön Yüz (Avers) -->
                     <div style="background: #F8FAFC; border: 1px solid var(--border-subtle); border-radius: 12px; padding: 24px;">
@@ -400,8 +415,9 @@
 
                         <div class="image-upload-box" onclick="document.getElementById('avers_image_file').click()">
                             <img id="avers-preview" class="preview-circle" 
-                                 src="{{ $coin->avers_thumb_url ?? asset($coin->avers_image ?? 'images/placeholders/coin-avers.png') }}" 
-                                 alt="Ön Yüz Önizleme">
+                                 src="{{ $aversFormSrc }}" 
+                                 alt="Ön Yüz Önizleme"
+                                 onerror="this.onerror=null; this.src='{{ $placeholderSvg }}';">
                             <div style="font-weight: 600; font-size: 13px; color: var(--gold-primary);">Makro Fotoğraf Yükle</div>
                             <div style="font-size: 11.5px; color: var(--text-muted); margin-top: 3px;">JPG, PNG veya WebP (Otomatik optimize edilir)</div>
                             <input type="file" name="avers_image_file" id="avers_image_file" accept="image/*" style="display: none;" onchange="previewImage(this, 'avers-preview')">
@@ -419,8 +435,9 @@
 
                         <div class="image-upload-box" onclick="document.getElementById('revers_image_file').click()">
                             <img id="revers-preview" class="preview-circle" 
-                                 src="{{ $coin->revers_thumb_url ?? asset($coin->revers_image ?? 'images/placeholders/coin-revers.png') }}" 
-                                 alt="Arka Yüz Önizleme">
+                                 src="{{ $reversFormSrc }}" 
+                                 alt="Arka Yüz Önizleme"
+                                 onerror="this.onerror=null; this.src='{{ $placeholderSvg }}';">
                             <div style="font-weight: 600; font-size: 13px; color: var(--gold-primary);">Makro Fotoğraf Yükle</div>
                             <div style="font-size: 11.5px; color: var(--text-muted); margin-top: 3px;">JPG, PNG veya WebP (Otomatik optimize edilir)</div>
                             <input type="file" name="revers_image_file" id="revers_image_file" accept="image/*" style="display: none;" onchange="previewImage(this, 'revers-preview')">
@@ -472,8 +489,9 @@
                 @endphp
 
                 <div class="form-group">
-                    <label class="form-label" for="reference_codes_raw">Standart Nümizmatik Referans Kodları (RIC, RPC, BMC, Sear)</label>
-                    <textarea name="reference_codes_raw" id="reference_codes_raw" class="form-control" rows="4" placeholder="RIC: II 114&#10;BMCRE: 241&#10;Sear: 2731">{{ old('reference_codes_raw', $refString) }}</textarea>
+                    <label class="form-label" for="reference_codes">Standart Nümizmatik Referans Kodları (RIC, RPC, BMC, Sear)</label>
+                    <input type="text" name="reference_codes" id="reference_codes" class="form-control" value="{{ old('reference_codes', is_array($coin->reference_codes) ? implode(', ', array_map(fn($k, $v) => "$k: $v", array_keys($coin->reference_codes), $coin->reference_codes)) : (is_string($coin->reference_codes) ? $coin->reference_codes : '')) }}" placeholder="Örn: RIC: II 114, BMCRE: 241" style="margin-bottom: 8px;">
+                    <textarea name="reference_codes_raw" id="reference_codes_raw" class="form-control" rows="3" placeholder="RIC: II 114&#10;BMCRE: 241&#10;Sear: 2731">{{ old('reference_codes_raw', $refString) }}</textarea>
                     <div class="form-helper">Her satıra bir katalog kodu yazınız (Örn: "RIC: II 114"). Otomatik JSON olarak serileştirilir.</div>
                 </div>
 
@@ -558,29 +576,32 @@
     }
 
     async function fetchCoinFromUrl() {
-        const urlInput = document.getElementById('scraper_url');
-        const url = urlInput.value.trim();
-        const btn = document.getElementById('btn_fetch_url');
+        const urlInput = document.getElementById('import_url') || document.getElementById('scraper_url');
+        const url = urlInput ? urlInput.value.trim() : '';
+        const btn = document.getElementById('btn_fetch_coin') || document.getElementById('btn_fetch_url');
         const btnText = document.getElementById('fetch_btn_text');
         const spinner = document.getElementById('fetch_spinner');
         const icon = document.getElementById('fetch_icon');
         const statusBox = document.getElementById('fetch_status_box');
 
         if (!url) {
-            alert('Lütfen geçerli bir ürün URL adresi giriniz.');
-            urlInput.focus();
+            alert('Lütfen geçerli bir internet adresi (https://www.vcoins.com/...) giriniz.');
+            if (urlInput) urlInput.focus();
             return;
         }
 
-        btn.disabled = true;
-        btnText.innerText = 'Çözümleniyor...';
-        spinner.style.display = 'inline-block';
-        icon.style.display = 'none';
-        statusBox.style.display = 'block';
-        statusBox.style.background = '#EFF6FF';
-        statusBox.style.color = '#1E40AF';
-        statusBox.style.border = '1px solid #BFDBFE';
-        statusBox.innerHTML = '⏳ Sayfa içeriği çekiliyor, Gemini 1.5 ile Türkçeleştiriliyor ve görseller WebP olarak sunucuya indiriliyor. Lütfen bekleyiniz...';
+        if (btn) btn.disabled = true;
+        if (btnText) btnText.innerText = 'Nümizmatik veriler çekiliyor ve Gemini ile Türkçeleştiriliyor...';
+        if (spinner) spinner.style.display = 'inline-block';
+        if (icon) icon.style.display = 'none';
+
+        if (statusBox) {
+            statusBox.style.display = 'block';
+            statusBox.style.background = '#EFF6FF';
+            statusBox.style.color = '#1E40AF';
+            statusBox.style.border = '1px solid #BFDBFE';
+            statusBox.innerHTML = '⏳ <strong>Nümizmatik veriler çekiliyor ve Gemini ile Türkçeleştiriliyor...</strong> Lütfen bekleyiniz, fotoğraflar optimize edilip WebP olarak sunucuya indiriliyor.';
+        }
 
         try {
             const response = await fetch('{{ route('admin.coins.fetch_from_url') }}', {
@@ -598,124 +619,201 @@
             if (res.success && res.data) {
                 const d = res.data;
 
-                // Form Alanlarını Otomatik Doldur
-                if (d.title) document.getElementById('title').value = d.title;
-                if (d.ruler) document.getElementById('ruler').value = d.ruler;
-                if (d.civilization_id) {
-                    const civSelect = document.getElementById('civilization_id');
-                    civSelect.value = d.civilization_id;
-                    loadMintsByCivilization(d.civilization_id);
-                }
-                if (d.metal_type) {
-                    const metalSelect = document.getElementById('metal_type');
-                    if (metalSelect) {
-                        const target = d.metal_type.toLowerCase();
-                        for (let opt of metalSelect.options) {
-                            const val = opt.value.toLowerCase();
-                            if (val.includes(target) || target.includes(val) || 
-                               (target.includes('altın') && val.includes('altın')) || 
-                               (target.includes('gümüş') && val.includes('gümüş')) || 
-                               (target.includes('bronz') && val.includes('bronz')) || 
-                               (target.includes('elektrum') && val.includes('elektrum'))) {
-                                metalSelect.value = opt.value;
+                // 1. input[name="title"]
+                const titleInput = document.querySelector('input[name="title"]') || document.getElementById('title');
+                if (titleInput && d.title) titleInput.value = d.title;
+
+                // 2. select[name="civilization_id"] (Metin benzerliğine göre eşleşeni seçsin)
+                const civSelect = document.querySelector('select[name="civilization_id"]') || document.getElementById('civilization_id');
+                if (civSelect) {
+                    if (d.civilization_id) {
+                        civSelect.value = d.civilization_id;
+                    } else if (d.civilization) {
+                        const targetCiv = d.civilization.toLowerCase().trim();
+                        for (let opt of civSelect.options) {
+                            const optText = opt.text.toLowerCase();
+                            if (optText.includes(targetCiv) || targetCiv.includes(optText.split('(')[0].trim())) {
+                                civSelect.value = opt.value;
                                 break;
                             }
                         }
                     }
-                }
-                if (d.standard_name) {
-                    const stdInput = document.getElementById('standard_name');
-                    if (stdInput) stdInput.value = d.standard_name;
-                }
-                if (d.weight_grams) {
-                    const wInput = document.getElementById('weight_grams');
-                    if (wInput) wInput.value = d.weight_grams;
-                }
-                if (d.diameter_mm) {
-                    const diaInput = document.getElementById('diameter_mm');
-                    if (diaInput) diaInput.value = d.diameter_mm;
-                }
-                if (d.year_start !== null && d.year_start !== undefined) {
-                    const ysInput = document.getElementById('year_start');
-                    if (ysInput) ysInput.value = d.year_start;
-                }
-                if (d.year_end !== null && d.year_end !== undefined) {
-                    const yeInput = document.getElementById('year_end');
-                    if (yeInput) yeInput.value = d.year_end;
-                }
-                if (d.condition_grade) {
-                    const condSelect = document.getElementById('condition_grade');
-                    if (condSelect) {
-                        for (let opt of condSelect.options) {
-                            if (opt.value.toLowerCase() === d.condition_grade.toLowerCase()) {
-                                condSelect.value = opt.value;
-                                break;
-                            }
-                        }
+                    if (civSelect.value && typeof loadMintsByCivilization === 'function') {
+                        loadMintsByCivilization(civSelect.value);
                     }
-                }
-                if (d.avers_description) {
-                    const avDesc = document.getElementById('avers_description');
-                    if (avDesc) avDesc.value = d.avers_description;
-                }
-                if (d.revers_description) {
-                    const rvDesc = document.getElementById('revers_description');
-                    if (rvDesc) rvDesc.value = d.revers_description;
-                }
-                if (d.estimated_value_min) {
-                    const minPrice = document.getElementById('estimated_value_min');
-                    if (minPrice) minPrice.value = d.estimated_value_min;
-                }
-                if (d.estimated_value_max) {
-                    const maxPrice = document.getElementById('estimated_value_max');
-                    if (maxPrice) maxPrice.value = d.estimated_value_max;
                 }
 
-                // Referans Kodları
+                // 3. input[name="ruler"]
+                const rulerInput = document.querySelector('input[name="ruler"]') || document.getElementById('ruler');
+                if (rulerInput && d.ruler) rulerInput.value = d.ruler;
+
+                // 4. select[name="metal_type"]
+                const metalSelect = document.querySelector('select[name="metal_type"]') || document.getElementById('metal_type');
+                if (metalSelect && d.metal_type) {
+                    const targetMetal = d.metal_type.toLowerCase();
+                    for (let opt of metalSelect.options) {
+                        const val = opt.value.toLowerCase();
+                        if (val.includes(targetMetal) || targetMetal.includes(val) ||
+                            (targetMetal.includes('altın') && val.includes('altın')) ||
+                            (targetMetal.includes('gümüş') && val.includes('gümüş')) ||
+                            (targetMetal.includes('bronz') && val.includes('bronz')) ||
+                            (targetMetal.includes('elektrum') && val.includes('elektrum')) ||
+                            (targetMetal.includes('bakır') && val.includes('bakır'))) {
+                            metalSelect.value = opt.value;
+                            break;
+                        }
+                    }
+                }
+
+                // Birim / Standart
+                const stdInput = document.querySelector('input[name="standard_name"]') || document.getElementById('standard_name');
+                if (stdInput && d.standard_name) stdInput.value = d.standard_name;
+
+                // 5. input[name="weight_grams"]
+                const weightInput = document.querySelector('input[name="weight_grams"]') || document.getElementById('weight_grams');
+                if (weightInput && d.weight_grams !== null && d.weight_grams !== undefined) {
+                    weightInput.value = d.weight_grams;
+                }
+
+                // 6. input[name="diameter_mm"]
+                const diaInput = document.querySelector('input[name="diameter_mm"]') || document.getElementById('diameter_mm');
+                if (diaInput && d.diameter_mm !== null && d.diameter_mm !== undefined) {
+                    diaInput.value = d.diameter_mm;
+                }
+
+                // 7. input[name="die_axis"]
+                const dieAxisInput = document.querySelector('input[name="die_axis"]') || document.querySelector('[name="die_axis"]');
+                if (dieAxisInput && d.die_axis) {
+                    dieAxisInput.value = d.die_axis;
+                }
+
+                // 8. input[name="year_start"] & input[name="year_end"]
+                const ysInput = document.querySelector('input[name="year_start"]') || document.getElementById('year_start');
+                if (ysInput && d.year_start !== null && d.year_start !== undefined) {
+                    ysInput.value = d.year_start;
+                }
+
+                const yeInput = document.querySelector('input[name="year_end"]') || document.getElementById('year_end');
+                if (yeInput && d.year_end !== null && d.year_end !== undefined) {
+                    yeInput.value = d.year_end;
+                }
+
+                // 9. select[name="condition_grade"]
+                const condSelect = document.querySelector('select[name="condition_grade"]') || document.getElementById('condition_grade');
+                if (condSelect && d.condition_grade) {
+                    const targetCond = d.condition_grade.toUpperCase().trim();
+                    for (let opt of condSelect.options) {
+                        if (opt.value.toUpperCase() === targetCond || opt.text.toUpperCase().includes(targetCond)) {
+                            condSelect.value = opt.value;
+                            break;
+                        }
+                    }
+                }
+
+                // 10. textarea[name="avers_description"]
+                const avDesc = document.querySelector('textarea[name="avers_description"]') || document.getElementById('avers_description');
+                if (avDesc && d.avers_description) avDesc.value = d.avers_description;
+
+                // 11. textarea[name="revers_description"]
+                const rvDesc = document.querySelector('textarea[name="revers_description"]') || document.getElementById('revers_description');
+                if (rvDesc && d.revers_description) rvDesc.value = d.revers_description;
+
+                // 12. input[name="reference_codes"]
+                let refFormatted = '';
                 if (d.reference_codes) {
-                    const refInput = document.getElementById('reference_codes_raw');
-                    if (refInput) {
-                        if (typeof d.reference_codes === 'object') {
-                            refInput.value = Object.entries(d.reference_codes).map(([k, v]) => `${k}: ${v}`).join('\n');
-                        } else {
-                            refInput.value = d.reference_codes;
-                        }
+                    if (typeof d.reference_codes === 'object') {
+                        refFormatted = Object.entries(d.reference_codes).map(([k, v]) => `${k}: ${v}`).join('\n');
+                    } else {
+                        refFormatted = String(d.reference_codes);
                     }
                 }
+                const refInput = document.querySelector('input[name="reference_codes"]') || document.getElementById('reference_codes');
+                if (refInput && refFormatted) {
+                    refInput.value = refFormatted.replace(/\n/g, ', ');
+                }
+                const refTextarea = document.querySelector('textarea[name="reference_codes_raw"]') || document.getElementById('reference_codes_raw');
+                if (refTextarea && refFormatted) {
+                    refTextarea.value = refFormatted;
+                }
 
-                // Görselleri Güncelle
-                if (d.avers_image && d.avers_image_url) {
+                // 13. input[name="estimated_value_min"]
+                const minPrice = document.querySelector('input[name="estimated_value_min"]') || document.getElementById('estimated_value_min');
+                if (minPrice && d.estimated_value_min) minPrice.value = d.estimated_value_min;
+
+                const maxPrice = document.querySelector('input[name="estimated_value_max"]') || document.getElementById('estimated_value_max');
+                if (maxPrice && d.estimated_value_max) maxPrice.value = d.estimated_value_max;
+
+                // 14. Görselleri ve Hidden inputları güncelle
+                const aversPath = d.avers_image_path || d.avers_image || '';
+                const aversUrl = d.avers_image_url || (aversPath ? ('/storage/' + aversPath.replace(/^public\//, '')) : '');
+                if (aversPath) {
                     const aversHidden = document.getElementById('avers_image');
-                    if (aversHidden) aversHidden.value = d.avers_image;
-                    const aversPrev = document.getElementById('avers-preview');
-                    if (aversPrev) aversPrev.src = d.avers_image_url;
+                    if (aversHidden) aversHidden.value = aversPath;
+                    const aversImported = document.getElementById('avers_imported_path');
+                    if (aversImported) aversImported.value = aversPath;
                 }
-                if (d.revers_image && d.revers_image_url) {
-                    const reversHidden = document.getElementById('revers_image');
-                    if (reversHidden) reversHidden.value = d.revers_image;
-                    const reversPrev = document.getElementById('revers-preview');
-                    if (reversPrev) reversPrev.src = d.revers_image_url;
+                if (aversUrl) {
+                    const aversPrev = document.getElementById('avers-preview');
+                    if (aversPrev) aversPrev.src = aversUrl;
                 }
 
-                statusBox.style.background = '#ECFDF5';
-                statusBox.style.color = '#065F46';
-                statusBox.style.border = '1px solid #A7F3D0';
-                statusBox.innerHTML = '✨ <strong>Eser bilgileri başarıyla çekildi, Türkçeleştirildi ve form dolduruldu. Lütfen kontrol edip kaydedin.</strong>';
+                const reversPath = d.revers_image_path || d.revers_image || '';
+                const reversUrl = d.revers_image_url || (reversPath ? ('/storage/' + reversPath.replace(/^public\//, '')) : '');
+                if (reversPath) {
+                    const reversHidden = document.getElementById('revers_image');
+                    if (reversHidden) reversHidden.value = reversPath;
+                    const reversImported = document.getElementById('revers_imported_path');
+                    if (reversImported) reversImported.value = reversPath;
+                }
+                if (reversUrl) {
+                    const reversPrev = document.getElementById('revers-preview');
+                    if (reversPrev) reversPrev.src = reversUrl;
+                }
+
+                // 15. Yeşil bildirim kutusu
+                if (statusBox) {
+                    statusBox.style.display = 'block';
+                    statusBox.style.background = '#ECFDF5';
+                    statusBox.style.color = '#065F46';
+                    statusBox.style.border = '1px solid #10B981';
+                    statusBox.innerHTML = '✨ <strong>1 Eser başarıyla analiz edildi, Türkçeye çevrildi ve form dolduruldu. Lütfen alanları kontrol edip Kaydet\'e basın.</strong>';
+                }
             } else {
                 throw new Error(res.message || 'Veriler alınamadı.');
             }
         } catch (err) {
-            statusBox.style.background = '#FEF2F2';
-            statusBox.style.color = '#991B1B';
-            statusBox.style.border = '1px solid #FECACA';
-            statusBox.innerHTML = '❌ <strong>Hata:</strong> ' + (err.message || 'Bir hata oluştu.');
+            if (statusBox) {
+                statusBox.style.display = 'block';
+                statusBox.style.background = '#FEF2F2';
+                statusBox.style.color = '#991B1B';
+                statusBox.style.border = '1px solid #EF4444';
+                statusBox.innerHTML = '❌ <strong>Hata:</strong> ' + (err.message || 'Bir hata oluştu.');
+            }
         } finally {
-            btn.disabled = false;
-            btnText.innerText = 'Verileri Çek & Doldur';
-            spinner.style.display = 'none';
-            icon.style.display = 'inline-block';
+            if (btn) btn.disabled = false;
+            if (btnText) btnText.innerText = 'Eseri Getir & Yapay Zeka ile Çevir';
+            if (spinner) spinner.style.display = 'none';
+            if (icon) icon.style.display = 'inline-block';
         }
     }
+
+    // Buton tıklama dinleyicisini bağla
+    document.addEventListener('DOMContentLoaded', function() {
+        const fetchBtn = document.getElementById('btn_fetch_coin') || document.getElementById('btn_fetch_url');
+        if (fetchBtn) {
+            fetchBtn.addEventListener('click', fetchCoinFromUrl);
+        }
+
+        const urlInput = document.getElementById('import_url') || document.getElementById('scraper_url');
+        if (urlInput) {
+            urlInput.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    fetchCoinFromUrl();
+                }
+            });
+        }
+    });
 </script>
 @endpush
 

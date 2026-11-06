@@ -1,0 +1,76 @@
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+    <head><title>
+
+</title><link rel="stylesheet" type="text/css" media="all" href="/css/style.css" />
+        <script type="text/javascript" src="/js/jquery.min.js"></script> 
+        <script type="text/javascript" src="/js/fancybox.js"></script> 
+        <script type="text/javascript" src="/js/async.js"></script>
+    <meta name="robots" content="noindex, nofollow" /></head>
+    <body>
+        <form method="post" action="./Default.aspx?languageCode=en&amp;action=followstore&amp;idStore=8" id="form1">
+<div class="aspNetHidden">
+<input type="hidden" name="__VIEWSTATE" id="__VIEWSTATE" value="JcCqSaXNMVO0okZeXNmPQey0rsAP/ALYNXi3T8VLEpa4Qi+GHx2haOZ+k/vohVd31LjhO7UZFjbV2BtsLS4reFOBHAzQNP/sscW1xjQsIvU=" />
+</div>
+
+<div class="aspNetHidden">
+
+	<input type="hidden" name="__VIEWSTATEGENERATOR" id="__VIEWSTATEGENERATOR" value="C0D10187" />
+	<input type="hidden" name="__EVENTTARGET" id="__EVENTTARGET" value="" />
+	<input type="hidden" name="__EVENTARGUMENT" id="__EVENTARGUMENT" value="" />
+	<input type="hidden" name="__EVENTVALIDATION" id="__EVENTVALIDATION" value="B1jJBDmb4vuhiZt731OoLPdYDRa1d+/0PRKH3RN7rZbYIxEvLS5GfekG9E3D4lHF690S/gmAHY6O5GWHL0atTdwVbYk+CnmC/TkhzEu4YHQGDJNCwmlHbi6pa5n389MXO96qAaLKbJMPJsTFFebXffrmbpsRbZCgnM3NzrZ4g18=" />
+</div>
+            
+            <div id="pnlLogin" onkeypress="javascript:return WebForm_FireDefaultButton(event, &#39;cmdLogin&#39;)">
+	
+                        <div class="popup-box">
+                            <div class="fancy-inner">
+                                <div class="heading">Login</div>
+                            </div>
+                            <div class="popup-inner">
+                                <div id="divFollowStore" class="message-popup">By following a store you can set the frequency you would like to receive a notification of new items added by this store. Please login below.</div>
+                                
+								
+                                <div class="popup-form">
+                                    <label>User ID or Email:</label>
+                                    <input name="txtUsername" type="text" id="txtUsername" />
+                                </div>
+                                <div class="popup-form">
+                                    <label>Password:</label>
+                                    <input name="txtPassword" type="password" id="txtPassword" autocomplete="new-password" />
+                                </div>
+                                <input type="submit" name="cmdLogin" value="Login" id="cmdLogin" class="btn" />
+                                <p><span id="litError" class="message-error"></span></p>
+                                <p><a href="/modules/main/login/RecoverPassword.aspx?idLanguage=1" id="recoverpassword">Forgot your password?</a></p>
+                                <p><a href="/en/Register.aspx" target="_parent">Register</a></p>
+                            </div>
+                        </div>
+                    
+</div>
+            
+        
+<script type="text/javascript">
+//<![CDATA[
+var theForm = document.forms['form1'];
+if (!theForm) {
+    theForm = document.form1;
+}
+function __doPostBack(eventTarget, eventArgument) {
+    if (!theForm.onsubmit || (theForm.onsubmit() != false)) {
+        theForm.__EVENTTARGET.value = eventTarget;
+        theForm.__EVENTARGUMENT.value = eventArgument;
+        theForm.submit();
+    }
+}
+//]]>
+</script>
+
+
+<script src="/WebResource.axd?d=pynGkmcFUV13He1Qd6_TZF_BG77Z9_2rHyaW-qx6aqZdaEEJNYjZkBszZYiuwdTawAq9B_Eq9S59oQBzYMm3KA2&amp;t=637814444020000000" type="text/javascript"></script>
+</form>
+    </body>
+</html>
+

@@ -229,11 +229,22 @@
                     <tr>
                         <!-- Görseller (Avers & Revers) -->
                         <td>
+                            @php
+                                $placeholderSvg = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='80' height='80' viewBox='0 0 80 80'><circle cx='40' cy='40' r='38' fill='%23FBF8F2' stroke='%239E7B3B' stroke-width='2' stroke-dasharray='3 2'/><circle cx='40' cy='40' r='32' fill='none' stroke='%239E7B3B' stroke-width='1'/><text x='50%' y='48%' dominant-baseline='middle' text-anchor='middle' font-family='serif' font-weight='bold' font-size='12' fill='%239E7B3B'>SİKKE</text><text x='50%' y='64%' dominant-baseline='middle' text-anchor='middle' font-family='sans-serif' font-size='8' fill='%2364748B'>ANTİK</text></svg>";
+                                $aversUrl = !empty($coin->avers_image) 
+                                    ? (str_starts_with($coin->avers_image, 'http') ? $coin->avers_image : asset('storage/' . ltrim($coin->avers_image, '/'))) 
+                                    : $placeholderSvg;
+                                $reversUrl = !empty($coin->revers_image) 
+                                    ? (str_starts_with($coin->revers_image, 'http') ? $coin->revers_image : asset('storage/' . ltrim($coin->revers_image, '/'))) 
+                                    : $placeholderSvg;
+                            @endphp
                             <div class="coin-thumbs">
-                                <img src="{{ $coin->avers_thumb_url ?? asset($coin->avers_image ?? 'images/placeholders/coin-avers.png') }}" 
-                                     alt="Avers" class="thumb-img" title="Ön Yüz (Avers)">
-                                <img src="{{ $coin->revers_thumb_url ?? asset($coin->revers_image ?? 'images/placeholders/coin-revers.png') }}" 
-                                     alt="Revers" class="thumb-img" title="Arka Yüz (Revers)">
+                                <img src="{{ $aversUrl }}" 
+                                     alt="Avers" class="thumb-img" title="Ön Yüz (Avers)"
+                                     onerror="this.onerror=null; this.src='{{ $placeholderSvg }}';">
+                                <img src="{{ $reversUrl }}" 
+                                     alt="Revers" class="thumb-img" title="Arka Yüz (Revers)"
+                                     onerror="this.onerror=null; this.src='{{ $placeholderSvg }}';">
                             </div>
                         </td>
 

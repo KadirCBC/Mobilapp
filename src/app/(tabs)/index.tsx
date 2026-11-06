@@ -199,7 +199,7 @@ export default function HomeScreen() {
   }, [params.mint]);
 
   // Günün / Haftanın Nadir Eseri (Featured Hero)
-  const featuredCoin = MOCK_COINS[0];
+  const featuredCoin = (coins && coins.length > 0) ? coins[0] : MOCK_COINS[0];
 
   // Akıllı filtre çipine tıklandığında
   const handlePresetPress = (presetId: string) => {
@@ -301,7 +301,8 @@ export default function HomeScreen() {
 
   // Çok Kriterli Gelişmiş Süzme (Akıllı Rozetler + Arama + Madenler + Medeniyetler + Çağlar + Sıralama)
   const filteredCoins = useMemo(() => {
-    let list = MOCK_COINS.filter((coin) => {
+    const sourceList = (coins && coins.length > 0) ? coins : MOCK_COINS;
+    let list = sourceList.filter((coin) => {
       // 0. Akıllı Filtre Rozetleri (Smart Presets)
       if (selectedPreset !== 'all') {
         if (selectedPreset === 'museum_rare') {

@@ -1,10 +1,14 @@
+import { Platform } from 'react-native';
 import { CoinItem, MOCK_COINS } from '@/data/mockData';
 
 /**
- * Nümizmatik Laravel cPanel API İstemcisi
- * Canlı API kök adresi: https://paneliniz.com/api/v1
+ * Nümizmatik Yerel / cPanel API İstemcisi
+ * Yerel Geliştirme (Localhost): http://localhost:8000/api/v1
+ * Android Emülatör: http://10.0.2.2:8000/api/v1
+ * Canlı Prodüksiyon: https://paneliniz.com/api/v1
  */
-export const API_BASE_URL = 'https://paneliniz.com/api/v1';
+export const API_HOST = Platform.OS === 'android' ? 'http://10.0.2.2:8000' : 'http://localhost:8000';
+export const API_BASE_URL = `${API_HOST}/api/v1`;
 
 export interface BackendCivilization {
   id: number;
@@ -91,6 +95,14 @@ export interface PaginatedCoinsResult {
   };
 }
 
+export function resolveImageUrl(path?: string | null): string {
+  if (!path) return 'https://upload.wikimedia.org/wikipedia/commons/thumb/8/87/Denarius_Domitian-RIC_0114.jpg/640px-Denarius_Domitian-RIC_0114.jpg';
+  if (path.startsWith('http://') || path.startsWith('https://')) return path;
+  const cleanPath = path.startsWith('/') ? path : `/${path}`;
+  const storagePath = cleanPath.startsWith('/storage/') ? cleanPath : `/storage/${cleanPath.replace(/^\//, '')}`;
+  return `${API_HOST}${storagePath}`;
+}
+
 /**
  * Backend'den gelen sikke verisini Expo mobil UI'ın beklediği CoinItem arayüzüne dönüştürür.
  */
@@ -98,8 +110,11 @@ export function mapBackendCoinToCoinItem(b: BackendCoin): CoinItem {
   const civName = typeof b.civilization === 'object' && b.civilization !== null ? b.civilization.name : (b.civilization as string) || 'Bilinmiyor';
   const mintName = typeof b.mint === 'object' && b.mint !== null ? b.mint.name : (b.mint as string) || '';
 
-  const obverse = b.avers_thumb_url || b.avers_medium_url || b.avers_image || 'https://upload.wikimedia.org/wikipedia/commons/thumb/8/87/Denarius_Domitian-RIC_0114.jpg/640px-Denarius_Domitian-RIC_0114.jpg';
-  const reverse = b.revers_thumb_url || b.revers_medium_url || b.revers_image || obverse;
+  const rawObverse = b.avers_thumb_url || b.avers_medium_url || b.avers_image;
+  const rawReverse = b.revers_thumb_url || b.revers_medium_url || b.revers_image;
+
+  const obverse = resolveImageUrl(rawObverse);
+  const reverse = rawReverse ? resolveImageUrl(rawReverse) : obverse;
 
   let numericPrice = 0;
   if (b.estimated_value_max) {

@@ -106,9 +106,12 @@
         </a>
 
         <ul class="navbar-nav">
-            <li><a href="{{ route('admin.coins.index') }}" class="nav-link {{ request()->routeIs('admin.coins.*') ? 'active' : '' }}">Sikkeler & Eserler</a></li>
-            <li><a href="{{ route('admin.ai.settings') }}" class="nav-link {{ request()->routeIs('admin.ai.*') ? 'active' : '' }}">AI Kontrol Merkezi</a></li>
-            <li><a href="/admin" class="nav-link" style="border: 1px solid var(--border-subtle);">Filament Paneli &rarr;</a></li>
+            <li><a href="/admin/civilizations" class="nav-link {{ request()->is('admin/civilizations*') ? 'active' : '' }}">🏛️ Medeniyetler</a></li>
+            <li><a href="/admin/mints" class="nav-link {{ request()->is('admin/mints*') ? 'active' : '' }}">🗺️ Antik Darphaneler (Harita)</a></li>
+            <li><a href="/admin/coins" class="nav-link {{ request()->is('admin/coins*') ? 'active' : '' }}">🪙 Sikke Kataloğu</a></li>
+            <li><a href="/admin/ai/settings" class="nav-link {{ request()->is('admin/ai*') ? 'active' : '' }}">✨ Gemini AI Ayarları</a></li>
+            <li><a href="/admin/glossary" class="nav-link {{ request()->is('admin/glossary*') ? 'active' : '' }}">📖 Nümizmatik Sözlük</a></li>
+            <li><a href="/api/v1/coins" target="_blank" class="nav-link" style="border: 1px solid var(--border-subtle); color: var(--gold-primary);">Canlı JSON API ↗</a></li>
         </ul>
     </header>
 

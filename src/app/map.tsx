@@ -29,6 +29,7 @@ import Svg, {
 } from 'react-native-svg';
 
 import { BorderRadius, Spacing } from '@/constants/theme';
+import { api } from '@/services/api';
 import {
   ANCIENT_MINTS,
   AncientMint,
@@ -64,11 +65,39 @@ const SHEET_EXPANDED_HEIGHT = Math.min(SCREEN_HEIGHT * 0.74, 580);
 export default function AncientMintsAtlasScreen() {
   const router = useRouter();
 
-  // 1. Zaman Çizelgesi & Çağ Durumu
+  // 1. Canlı Darphaneler & Zaman Çizelgesi
+  const [mintsList, setMintsList] = useState<AncientMint[]>(ANCIENT_MINTS);
   const [activeEra, setActiveEra] = useState<ChronologicalEraId>('all');
 
   // 2. Seçili Antik Darphane (Varsayılan Sardis)
   const [selectedMint, setSelectedMint] = useState<AncientMint>(ANCIENT_MINTS[0]);
+
+  // Canlı backend API'den darphaneleri senkronize et
+  useEffect(() => {
+    let isMounted = true;
+    api.mints.list().then((serverMints) => {
+      if (!isMounted || !serverMints || serverMints.length === 0) return;
+      setMintsList((prev) => {
+        return prev.map((localMint) => {
+          const match = serverMints.find(
+            (sm) =>
+              sm.name.toLowerCase() === localMint.name.toLowerCase() ||
+              (sm.ancient_name && localMint.ancientName && sm.ancient_name.toLowerCase() === localMint.ancientName.toLowerCase())
+          );
+          if (match && match.description) {
+            return {
+              ...localMint,
+              description: match.description,
+            };
+          }
+          return localMint;
+        });
+      });
+    }).catch((err) => {
+      console.warn('Backend mints sync failed, using local cache:', err);
+    });
+    return () => { isMounted = false; };
+  }, []);
 
   // 3. Bottom Sheet Durumu & PanResponder
   const [isExpanded, setIsExpanded] = useState(false);
@@ -413,7 +442,7 @@ export default function AncientMintsAtlasScreen() {
         </Svg>
 
         {/* 4. ANTİK MADEN ROZETİ PİNLERİ (SİKKE KABARTMALI & NABIZ EFEKTLİ) */}
-        {ANCIENT_MINTS.map((mint) => {
+        {mintsList.map((mint) => {
           const isSelected = mint.id === selectedMint.id;
           const isActive = isMintActiveInEra(mint);
 

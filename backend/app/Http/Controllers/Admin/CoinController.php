@@ -103,6 +103,8 @@ class CoinController extends Controller
         // Ön Yüz (Avers) Görselini WebP'ye Dönüştür ve Kaydet
         if ($request->hasFile('avers_image_file')) {
             $validated['avers_image'] = $this->uploadAndConvertToWebp($request->file('avers_image_file'), 'obverse');
+        } elseif ($request->filled('avers_imported_path')) {
+            $validated['avers_image'] = $request->input('avers_imported_path');
         } elseif ($request->filled('avers_image')) {
             $validated['avers_image'] = $request->input('avers_image');
         }
@@ -110,6 +112,8 @@ class CoinController extends Controller
         // Arka Yüz (Revers) Görselini WebP'ye Dönüştür ve Kaydet
         if ($request->hasFile('revers_image_file')) {
             $validated['revers_image'] = $this->uploadAndConvertToWebp($request->file('revers_image_file'), 'reverse');
+        } elseif ($request->filled('revers_imported_path')) {
+            $validated['revers_image'] = $request->input('revers_imported_path');
         } elseif ($request->filled('revers_image')) {
             $validated['revers_image'] = $request->input('revers_image');
         }
@@ -154,6 +158,8 @@ class CoinController extends Controller
                 $this->optimizerService->deleteOldImages($coin->avers_image);
             }
             $validated['avers_image'] = $this->uploadAndConvertToWebp($request->file('avers_image_file'), 'obverse');
+        } elseif ($request->filled('avers_imported_path')) {
+            $validated['avers_image'] = $request->input('avers_imported_path');
         } elseif ($request->filled('avers_image')) {
             $validated['avers_image'] = $request->input('avers_image');
         }
@@ -164,6 +170,8 @@ class CoinController extends Controller
                 $this->optimizerService->deleteOldImages($coin->revers_image);
             }
             $validated['revers_image'] = $this->uploadAndConvertToWebp($request->file('revers_image_file'), 'reverse');
+        } elseif ($request->filled('revers_imported_path')) {
+            $validated['revers_image'] = $request->input('revers_imported_path');
         } elseif ($request->filled('revers_image')) {
             $validated['revers_image'] = $request->input('revers_image');
         }

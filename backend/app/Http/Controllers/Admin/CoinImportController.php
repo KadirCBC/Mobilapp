@@ -52,8 +52,8 @@ class CoinImportController extends Controller
         try {
             Log::info("Admin CoinImportController: URL ayrıştırma isteği alındı -> {$url}");
 
-            // 2. CoinScraperService servisini çalıştır
-            $scrapedResult = $this->scraperService->scrapeAndProcess($url);
+            // 2. CoinScraperService scrapeAndTranslate metodunu çalıştır
+            $scrapedResult = $this->scraperService->scrapeAndTranslate($url);
 
             // 3. Yerel depolanan görsellerin web erişim URL'lerini hazırla
             $aversImage = $scrapedResult['avers_image_path'] ?? $scrapedResult['avers_image'] ?? null;
@@ -76,7 +76,7 @@ class CoinImportController extends Controller
                 }
             }
 
-            // 5. Form alanlarına tam oturan yapılandırılmış veri paketi
+            // 5. Form alanlarına basılacak yapılandırılmış nümizmatik veri paketi
             $responseData = [
                 'title'                 => $scrapedResult['title'] ?? '',
                 'civilization'          => $scrapedResult['civilization'] ?? '',
@@ -111,7 +111,7 @@ class CoinImportController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => 'Nümizmatik eser verileri ve görselleri başarıyla çekildi ve Türkçeleştirildi.',
+                'message' => 'Nümizmatik eser verileri başarıyla çekildi ve Türkçeleştirildi.',
                 'data'    => $responseData,
             ], 200);
 
@@ -120,14 +120,14 @@ class CoinImportController extends Controller
                 'trace' => $e->getTraceAsString(),
             ]);
 
-            // Kullanıcıya anlaşılır Türkçe hata mesajı üret
+            // Kullanıcıya anlaşılır Türkçe hata mesajı üret (500 yerine 422 veya 200)
             $userFriendlyMessage = $this->resolveErrorMessage($e);
 
             return response()->json([
-                'success' => false,
-                'message' => $userFriendlyMessage,
+                'success'      => false,
+                'message'      => $userFriendlyMessage,
                 'error_detail' => config('app.debug') ? $e->getMessage() : null,
-            ], 500);
+            ], 422);
         }
     }
 
@@ -142,15 +142,19 @@ class CoinImportController extends Controller
             return 'Yapay zeka analiz servisi aktif değil veya API anahtarı tanımlanmamış. Lütfen Admin -> AI Ayarları sayfasını kontrol ediniz.';
         }
 
-        if (str_contains($msg, 'Hedef siteye erişilemedi') || str_contains($msg, 'cURL error') || str_contains($msg, 'timeout')) {
-            return 'Hedef nümizmatik web sitesine erişilemedi veya bağlantı zaman aşımına uğradı. Lütfen URL adresinin erişilebilir olduğunu kontrol ediniz.';
+        if (str_contains($msg, 'quota') || str_contains($msg, 'ResourceExhausted') || str_contains($msg, 'rate limit') || str_contains($msg, 'RESOURCE_EXHAUSTED')) {
+            return 'Google Gemini API kotası tükendi veya anlık istek sınırına ulaşıldı. Lütfen birkaç dakika sonra tekrar deneyiniz veya yeni bir API anahtarı giriniz.';
+        }
+
+        if (str_contains($msg, 'Hedef siteye erişilemedi') || str_contains($msg, 'cURL error') || str_contains($msg, 'timeout') || str_contains($msg, 'Connection timed out')) {
+            return 'Hedef nümizmatik web sitesi açılamadı veya bağlantı zaman aşımına uğradı. Lütfen URL adresinin tarayıcıda açıldığını doğrulayınız.';
         }
 
         if (str_contains($msg, 'içerik veya açıklama metni okunamadı')) {
-            return 'Girilen web sayfasında nümizmatik ürün başlığı veya açıklaması tespit edilemedi. Lütfen doğrudan ürün detay sayfasının linkini giriniz.';
+            return 'Girilen sayfada nümizmatik ürün başlığı veya satış açıklaması tespit edilemedi. Lütfen geçerli bir ürün detay sayfası linki giriniz.';
         }
 
-        return 'Nümizmatik veri çekme işlemi sırasında bir sorun oluştu: ' . $msg;
+        return 'Veri çekme sırasında bir hata oluştu: ' . $msg;
     }
 }
 

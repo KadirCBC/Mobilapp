@@ -1,0 +1,45 @@
+#!/usr/bin/env php
+<?php
+
+define('LARAVEL_START', microtime(true));
+
+$args = array_slice($argv, 1);
+$cmd = implode(' ', $args);
+
+if (str_contains($cmd, 'migrate:fresh') || str_contains($cmd, 'migrate') || str_contains($cmd, 'db:seed')) {
+    echo "Artisan Komutu Algılandı: [php artisan {$cmd}]\n";
+    require __DIR__ . '/database/fresh_seed.php';
+    exit(0);
+}
+
+if (str_contains($cmd, 'storage:link')) {
+    echo "Depolama Sembolik Bağlantısı Kontrol Ediliyor...\n";
+    $target = __DIR__ . '/storage/app/public';
+    $link = __DIR__ . '/public/storage';
+    if (!file_exists($link)) {
+        symlink($target, $link);
+        echo "The [$link] link has been connected to [$target].\n";
+    } else {
+        echo "The 'public/storage' directory already exists.\n";
+    }
+    exit(0);
+}
+
+if (str_contains($cmd, 'serve')) {
+    $port = 8000;
+    foreach ($args as $arg) {
+        if (str_starts_with($arg, '--port=')) {
+            $port = (int)substr($arg, 7);
+        }
+    }
+    echo "Laravel geliştirme sunucusu başlatılıyor: http://127.0.0.1:{$port}\n";
+    passthru(PHP_BINARY . " -S 0.0.0.0:{$port} -t " . escapeshellarg(__DIR__ . '/public') . " " . escapeshellarg(__DIR__ . '/server.php'));
+    exit(0);
+}
+
+echo "Laravel CLI v11.x (Sikkelobedi Local Engine)\n";
+echo "Desteklenen komutlar:\n";
+echo "  php artisan migrate:fresh --seed\n";
+echo "  php artisan storage:link\n";
+echo "  php artisan serve --port=8000\n";
+

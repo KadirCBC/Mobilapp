@@ -33,9 +33,14 @@ class CoinScraperService
      *
      * @param string $url VCoins veya benzeri antik sikke ürün detay linki
      * @return array Yapılandırılmış nümizmatik veriler ve yerel görsel yolları
-     *
-     * @throws \InvalidArgumentException Geçersiz URL durumunda
-     * @throws \RuntimeException Sayfa çekilemezse veya analiz başarısız olursa
+     */
+    public function scrapeAndTranslate(string $url): array
+    {
+        return $this->scrapeAndProcess($url);
+    }
+
+    /**
+     * Verilen URL'den nümizmatik verileri çeker ve işler.
      */
     public function scrapeAndProcess(string $url): array
     {
