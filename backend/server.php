@@ -280,9 +280,12 @@ Sadece saf JSON formatında yanıt ver.";
 // NÜMİZMATİK YEREL ZEKA VE ÇEVİRİ YARDIMCILARI (GELİŞMİŞ FAIL-SAFE)
 // -----------------------------------------------------------------------------
 function decodeNumismaticHtml(string $text): string {
+    if (empty($text)) return '';
+    $text = html_entity_decode($text, ENT_QUOTES | ENT_HTML5, 'UTF-8');
     $text = html_entity_decode($text, ENT_QUOTES | ENT_HTML5, 'UTF-8');
     $text = preg_replace_callback('/&#(\d+);/', fn($m) => mb_chr((int)$m[1], 'UTF-8'), $text);
     $text = preg_replace_callback('/&#x([0-9a-f]+);/i', fn($m) => mb_chr(hexdec($m[1]), 'UTF-8'), $text);
+    $text = str_replace(['&#198;', '&#230;', '&AElig;', '&aelig;'], ['Æ', 'æ', 'Æ', 'æ'], $text);
     return trim($text);
 }
 
@@ -1272,14 +1275,16 @@ if ($uri === '/admin/coins' && $method === 'POST') {
         return is_numeric($c) ? (int)round((float)$c) : null;
     };
 
-    $title = trim($_POST['title'] ?? '');
+    $title = decodeNumismaticHtml(trim($_POST['title'] ?? ''));
     $slug = strtolower(trim(preg_replace('/[^A-Za-z0-9-]+/', '-', $title), '-')) . '-' . rand(100, 999);
     $civId = (int)($_POST['civilization_id'] ?? 1);
     $mintId = !empty($_POST['mint_id']) ? (int)$_POST['mint_id'] : null;
-    $ruler = trim($_POST['ruler'] ?? '');
+    $ruler = decodeNumismaticHtml(trim($_POST['ruler'] ?? ''));
     $metal = trim($_POST['metal_type'] ?? 'Gümüş (AR)');
-    if ($metal === 'Altın (AU)') $metal = 'Altın (AV)';
-    $standard = trim($_POST['standard_name'] ?? 'Denarius');
+    if ($metal === 'Altın (AU)' || str_contains($metal, 'AU')) {
+        $metal = str_replace('AU', 'AV', $metal);
+    }
+    $standard = decodeNumismaticHtml(trim($_POST['standard_name'] ?? 'Denarius'));
     $weight = $cleanNum($_POST['weight_grams'] ?? null);
     $diameter = $cleanNum($_POST['diameter_mm'] ?? null);
     $dieAxis = trim($_POST['die_axis'] ?? '');
@@ -1290,8 +1295,8 @@ if ($uri === '/admin/coins' && $method === 'POST') {
     $valMin = $cleanNum($_POST['estimated_value_min'] ?? null);
     $valMax = $cleanNum($_POST['estimated_value_max'] ?? null);
     $currency = trim($_POST['currency'] ?? 'USD');
-    $aversDesc = trim($_POST['avers_description'] ?? '');
-    $reversDesc = trim($_POST['revers_description'] ?? '');
+    $aversDesc = decodeNumismaticHtml(trim($_POST['avers_description'] ?? ''));
+    $reversDesc = decodeNumismaticHtml(trim($_POST['revers_description'] ?? ''));
     $isFeatured = isset($_POST['is_featured']) ? 1 : 0;
     $isPublished = isset($_POST['is_published']) ? 1 : 0;
 
@@ -1341,7 +1346,7 @@ if ($uri === '/admin/coins' && $method === 'POST') {
         $refJson = json_encode($refMap, JSON_UNESCAPED_UNICODE);
     }
 
-    $historicalContext = trim($_POST['historical_context'] ?? '');
+    $historicalContext = decodeNumismaticHtml(trim($_POST['historical_context'] ?? ''));
     $roi5y = trim($_POST['roi_5y'] ?? '+49%');
     $liquidityGrade = trim($_POST['liquidity_grade'] ?? 'A+ Üstün');
     $academicSource = trim($_POST['academic_source'] ?? '');
