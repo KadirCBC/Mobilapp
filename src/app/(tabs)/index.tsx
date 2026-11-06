@@ -88,12 +88,13 @@ export default function HomeScreen() {
   const [mainMenuVisible, setMainMenuVisible] = useState(false);
   const [filters, setFilters] = useState<FilterState>(DEFAULT_FILTER_STATE);
 
-  // Canlı Laravel cPanel API Sayfalama ve Durum Yönetimi
-  const [coins, setCoins] = useState<CoinItem[]>(MOCK_COINS);
+  // Canlı Laravel / MySQL API Sayfalama ve Durum Yönetimi
+  const [coins, setCoins] = useState<CoinItem[]>([]);
   const [page, setPage] = useState<number>(1);
   const [lastPage, setLastPage] = useState<number>(1);
-  const [totalServerCount, setTotalServerCount] = useState<number>(MOCK_COINS.length);
-  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [totalServerCount, setTotalServerCount] = useState<number>(0);
+  const [hasLoadedFromServer, setHasLoadedFromServer] = useState<boolean>(false);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isLoadingMore, setIsLoadingMore] = useState<boolean>(false);
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
 
@@ -140,7 +141,8 @@ export default function HomeScreen() {
         }
         setPage(res.meta.current_page || targetPage);
         setLastPage(res.meta.last_page || 1);
-        setTotalServerCount(res.meta.total || res.data.length);
+        setTotalServerCount(res.meta.total !== undefined ? res.meta.total : res.data.length);
+        setHasLoadedFromServer(true);
       }
     } catch (err) {
       console.warn('API coins fetch failed:', err);
@@ -228,7 +230,7 @@ export default function HomeScreen() {
   }, [params.mint]);
 
   // Günün / Haftanın Nadir Eseri (Featured Hero)
-  const featuredCoin = (coins && coins.length > 0) ? coins[0] : MOCK_COINS[0];
+  const featuredCoin = (coins && coins.length > 0) ? coins[0] : null;
 
   // Akıllı filtre çipine tıklandığında
   const handlePresetPress = (presetId: string) => {
