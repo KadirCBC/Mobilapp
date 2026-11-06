@@ -121,8 +121,10 @@ export function resolveImageUrl(path?: string | null): string {
 export function decodeHtmlEntities(str?: string | null): string {
   if (!str) return '';
   return str
-    .replace(/&#198;/g, 'Æ')
-    .replace(/&#230;/g, 'æ')
+    .replace(/&#(\d+);/g, (_, dec) => String.fromCharCode(Number(dec)))
+    .replace(/&#x([0-9a-f]+);/gi, (_, hex) => String.fromCharCode(parseInt(hex, 16)))
+    .replace(/&AElig;/g, 'Æ')
+    .replace(/&aelig;/g, 'æ')
     .replace(/&amp;/g, '&')
     .replace(/&lt;/g, '<')
     .replace(/&gt;/g, '>')

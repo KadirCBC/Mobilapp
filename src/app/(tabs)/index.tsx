@@ -359,6 +359,7 @@ export default function HomeScreen() {
             matLower.includes('stater') ||
             matLower.includes('solidus') ||
             matLower.includes('dinar') ||
+            matLower.includes('av') ||
             matLower.includes('au');
           if (!isGold) return false;
         } else if (selectedPreset === 'ancient_rome') {
@@ -416,11 +417,14 @@ export default function HomeScreen() {
           return (
             coinMat.includes(metalOpt.code.toLowerCase()) ||
             coinMat.includes(metalOpt.name.toLowerCase().split(' ')[0]) ||
-            (metalOpt.code === 'AU' && (coinMat.includes('altın') || coinMat.includes('stater') || coinMat.includes('solidus'))) ||
-            (metalOpt.code === 'AR' && (coinMat.includes('gümüş') || coinMat.includes('denarius') || coinMat.includes('tetradrahmi') || coinMat.includes('drahmi'))) ||
-            (metalOpt.code === 'AE' && (coinMat.includes('bronz') || coinMat.includes('bakır') || coinMat.includes('follis') || coinMat.includes('sestertius'))) ||
-            (metalOpt.code === 'EL' && coinMat.includes('elektrum')) ||
-            (metalOpt.code === 'BI' && coinMat.includes('bilyon'))
+            ((metalOpt.code === 'AV' || metalOpt.code === 'AU') && (coinMat.includes('altın') || coinMat.includes('stater') || coinMat.includes('solidus') || coinMat.includes('av') || coinMat.includes('au'))) ||
+            (metalOpt.code === 'AR' && (coinMat.includes('gümüş') || coinMat.includes('denarius') || coinMat.includes('tetradrahmi') || coinMat.includes('drahmi') || coinMat.includes('obol') || coinMat.includes('ar'))) ||
+            (metalOpt.code === 'AE' && (coinMat.includes('bronz') || coinMat.includes('bakır') || coinMat.includes('follis') || coinMat.includes('sestertius') || coinMat.includes('ae'))) ||
+            (metalOpt.code === 'EL' && (coinMat.includes('elektrum') || coinMat.includes('el'))) ||
+            (metalOpt.code === 'BI' && (coinMat.includes('bilyon') || coinMat.includes('bi'))) ||
+            (metalOpt.code === 'OR' && (coinMat.includes('pirinç') || coinMat.includes('or'))) ||
+            (metalOpt.code === 'PB' && (coinMat.includes('kurşun') || coinMat.includes('pb'))) ||
+            (metalOpt.code === 'PT' && (coinMat.includes('platin') || coinMat.includes('pt')))
           );
         });
         if (!matchesMetal) return false;
@@ -524,7 +528,7 @@ export default function HomeScreen() {
   }, [coins, hasLoadedFromServer, searchQuery, filters, selectedCivilization, selectedPreset]);
 
   // Canlı katalogdaki toplam eser sayısı (MySQL veritabanı canlı sayısı)
-  const totalCatalogCount = hasLoadedFromServer ? coins.length : (totalServerCount || 0);
+  const totalCatalogCount = hasLoadedFromServer ? Math.max(coins.length, totalServerCount) : (totalServerCount || 0);
 
   // Canlı katalogdaki aktif medeniyet sayısı (sikkelerin ait olduğu benzersiz medeniyetler)
   const activeCivilizationsCount = useMemo(() => {

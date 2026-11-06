@@ -234,12 +234,12 @@
                     <div class="form-grid-2">
                         <div class="form-group">
                             <label class="form-label" for="title">Sikke / Eser Başlığı *</label>
-                            <input type="text" name="title" id="title" class="form-control" value="<?= htmlspecialchars($coin['title'] ?? '') ?>" placeholder="Örn: Domitian Gümüş Denarius (Minerva Tasvirli)" required>
+                            <input type="text" name="title" id="title" class="form-control" value="<?= htmlspecialchars(html_entity_decode($coin['title'] ?? '', ENT_QUOTES | ENT_HTML5, 'UTF-8')) ?>" placeholder="Örn: Domitian Gümüş Denarius (Minerva Tasvirli)" required>
                             <div class="form-helper">SEO dostu kalıcı bağlantı (slug) otomatik oluşturulur.</div>
                         </div>
                         <div class="form-group">
                             <label class="form-label" for="ruler">Hükümdar / İmparator</label>
-                            <input type="text" name="ruler" id="ruler" class="form-control" value="<?= htmlspecialchars($coin['ruler'] ?? '') ?>" placeholder="Örn: Domitian, Nero, Augustus">
+                            <input type="text" name="ruler" id="ruler" class="form-control" value="<?= htmlspecialchars(html_entity_decode($coin['ruler'] ?? '', ENT_QUOTES | ENT_HTML5, 'UTF-8')) ?>" placeholder="Örn: Domitian, Nero, Augustus">
                         </div>
                     </div>
 
@@ -287,16 +287,30 @@
                 <div class="card">
                     <div class="form-grid-3">
                         <div class="form-group">
-                            <label class="form-label" for="metal_type">Maden Türü *</label>
+                            <label class="form-label" for="metal_type">Maden Türü & Kısaltma (8 Standart) *</label>
                             <select name="metal_type" id="metal_type" class="form-control" required>
-                                <?php foreach (['Altın (AU)', 'Gümüş (AR)', 'Bronz (AE)', 'Elektrum (EL)', 'Bilyon', 'Bakır'] as $met): ?>
-                                    <option value="<?= $met ?>" <?= (($coin['metal_type'] ?? 'Gümüş (AR)') === $met) ? 'selected' : '' ?>><?= $met ?></option>
+                                <?php 
+                                    $numismaticMetals = [
+                                        'Altın (AV)'   => 'Altın (AV) - Aurum (veya AU)',
+                                        'Gümüş (AR)'   => 'Gümüş (AR) - Argentum (Denarius, Obol, Drahmi vb.)',
+                                        'Bronz (AE)'   => 'Bronz / Bakır (AE) - Aes (Æ14, Æ20, Follis vb.)',
+                                        'Elektrum (EL)'=> 'Elektrum (EL) - Electrum (Doğal / Yapay Alaşım)',
+                                        'Bilyon (BI)'  => 'Bilyon (BI) - Billon (Düşük Ayarlı Gümüş-Bakır)',
+                                        'Pirinç (OR)'  => 'Pirinç (OR) - Orichalcum (Sestertius / Dupondius)',
+                                        'Kurşun (PB)'  => 'Kurşun (PB) - Plumbum (Mühür, Ağırlık, Jeton)',
+                                        'Platin (PT)'  => 'Platin (PT) - Platinum (Nadir / Hatıra Darpları)',
+                                    ];
+                                    $curM = $coin['metal_type'] ?? 'Gümüş (AR)';
+                                    if ($curM === 'Altın (AU)') $curM = 'Altın (AV)';
+                                ?>
+                                <?php foreach ($numismaticMetals as $mCode => $mTitle): ?>
+                                    <option value="<?= $mCode ?>" <?= ($curM === $mCode) ? 'selected' : '' ?>><?= $mTitle ?></option>
                                 <?php endforeach; ?>
                             </select>
                         </div>
                         <div class="form-group">
                             <label class="form-label" for="standard_name">Birim / Tip Standartı *</label>
-                            <input type="text" name="standard_name" id="standard_name" class="form-control" value="<?= htmlspecialchars($coin['standard_name'] ?? 'Denarius') ?>" placeholder="Denarius, Stater, Tetradrahmi" required>
+                            <input type="text" name="standard_name" id="standard_name" class="form-control" value="<?= htmlspecialchars(html_entity_decode($coin['standard_name'] ?? 'Denarius', ENT_QUOTES | ENT_HTML5, 'UTF-8')) ?>" placeholder="Denarius, Stater, Tetradrahmi" required>
                         </div>
                         <div class="form-group">
                             <label class="form-label" for="die_axis">Kalıp Açısı (Die Axis)</label>
@@ -310,11 +324,11 @@
                     <div class="form-grid-4">
                         <div class="form-group">
                             <label class="form-label" for="weight_grams">Ağırlık (Gram)</label>
-                            <input type="number" step="0.01" name="weight_grams" id="weight_grams" class="form-control" value="<?= htmlspecialchars($coin['weight_grams'] ?? '') ?>" placeholder="3.45">
+                            <input type="number" step="any" name="weight_grams" id="weight_grams" class="form-control" value="<?= htmlspecialchars($coin['weight_grams'] ?? '') ?>" placeholder="3.45">
                         </div>
                         <div class="form-group">
                             <label class="form-label" for="diameter_mm">Çap (Milimetre)</label>
-                            <input type="number" step="0.01" name="diameter_mm" id="diameter_mm" class="form-control" value="<?= htmlspecialchars($coin['diameter_mm'] ?? '') ?>" placeholder="19.2">
+                            <input type="number" step="any" name="diameter_mm" id="diameter_mm" class="form-control" value="<?= htmlspecialchars($coin['diameter_mm'] ?? '') ?>" placeholder="19.2">
                         </div>
                         <div class="form-group">
                             <label class="form-label" for="condition_grade">Kondisyon Derecesi</label>
@@ -402,11 +416,11 @@
                     <div class="form-grid-3">
                         <div class="form-group">
                             <label class="form-label" for="estimated_value_min">Tahmini Taban Fiyat ($)</label>
-                            <input type="number" name="estimated_value_min" id="estimated_value_min" class="form-control" value="<?= htmlspecialchars($coin['estimated_value_min'] ?? '') ?>" placeholder="185">
+                            <input type="number" step="any" name="estimated_value_min" id="estimated_value_min" class="form-control" value="<?= htmlspecialchars($coin['estimated_value_min'] ?? '') ?>" placeholder="185">
                         </div>
                         <div class="form-group">
                             <label class="form-label" for="estimated_value_max">Tahmini Tavan Fiyat ($)</label>
-                            <input type="number" name="estimated_value_max" id="estimated_value_max" class="form-control" value="<?= htmlspecialchars($coin['estimated_value_max'] ?? '') ?>" placeholder="240">
+                            <input type="number" step="any" name="estimated_value_max" id="estimated_value_max" class="form-control" value="<?= htmlspecialchars($coin['estimated_value_max'] ?? '') ?>" placeholder="240">
                         </div>
                         <div class="form-group">
                             <label class="form-label" for="currency">Para Birimi</label>
@@ -431,7 +445,7 @@
                         </div>
                         <div class="form-group">
                             <label class="form-label" for="avg_hammer_price">Ortalama Çekiç Fiyatı ($)</label>
-                            <input type="number" step="0.01" name="avg_hammer_price" id="avg_hammer_price" class="form-control" value="<?= htmlspecialchars($coin['avg_hammer_price'] ?? '') ?>" placeholder="104">
+                            <input type="number" step="any" name="avg_hammer_price" id="avg_hammer_price" class="form-control" value="<?= htmlspecialchars($coin['avg_hammer_price'] ?? '') ?>" placeholder="104">
                             <div class="form-helper">Son 5 yıldaki müzayede ortalaması.</div>
                         </div>
                         <div class="form-group">
@@ -558,7 +572,7 @@
                         document.getElementById('card_revers_img').src = d.revers_image_url || '';
                         document.getElementById('preview_card_title').innerText = d.title || 'Antik Sikke';
                         document.getElementById('preview_card_badge').innerText = d.is_ai_translated ? '✨ GEMINI AI İLE ÇEVRİLDİ' : '🏛️ NÜMİZMATİK KÜTÜPHANE DOĞRULAMASI';
-                        document.getElementById('card_civ_ruler').innerText = (d.civilization || 'Bilinmiyor') + (d.ruler ? ' • İmp. ' + d.ruler : '');
+                        document.getElementById('card_civ_ruler').innerText = (d.civilization || 'Bilinmiyor') + (d.mint_name ? ' • Darphane: ' + d.mint_name : '') + (d.ruler ? ' • Hük./Figür: ' + d.ruler : '');
                         
                         const rarityEl = document.getElementById('card_rarity_badge');
                         if (rarityEl) rarityEl.innerText = '⭐ Nadirlik: ' + (d.rarity_code || 'C');
@@ -623,16 +637,57 @@
                     const civSelect = document.querySelector('select[name="civilization_id"]');
                     if (civSelect && d.civilization_id) {
                         civSelect.value = d.civilization_id;
+                        civSelect.style.borderColor = 'var(--gold-primary)';
+                        setTimeout(() => { civSelect.style.borderColor = ''; }, 2500);
+                    }
+
+                    const mintSelect = document.querySelector('select[name="mint_id"]');
+                    if (mintSelect && d.mint_id) {
+                        mintSelect.value = d.mint_id;
+                        mintSelect.style.borderColor = 'var(--gold-primary)';
+                        setTimeout(() => { mintSelect.style.borderColor = ''; }, 2500);
                     }
 
                     const metalSelect = document.querySelector('select[name="metal_type"]');
                     if (metalSelect && d.metal_type) {
+                        let target = d.metal_type.trim();
+                        if (target.includes('AU')) target = 'Altın (AV)';
+                        let matched = false;
                         for (let opt of metalSelect.options) {
-                            if (opt.value.toLowerCase().includes(d.metal_type.toLowerCase())) {
+                            if (opt.value === target || opt.value.toLowerCase() === target.toLowerCase()) {
                                 metalSelect.value = opt.value;
+                                matched = true;
                                 break;
                             }
                         }
+                        if (!matched) {
+                            // Kısaltmaya göre eşle (AR, AV, AE, EL, BI, PB, OR, PT)
+                            const codeMap = [
+                                { k: 'AR', opt: 'Gümüş (AR)' },
+                                { k: 'AV', opt: 'Altın (AV)' },
+                                { k: 'AU', opt: 'Altın (AV)' },
+                                { k: 'AE', opt: 'Bronz (AE)' },
+                                { k: 'EL', opt: 'Elektrum (EL)' },
+                                { k: 'BI', opt: 'Bilyon (BI)' },
+                                { k: 'PB', opt: 'Kurşun (PB)' },
+                                { k: 'OR', opt: 'Pirinç (OR)' },
+                                { k: 'PT', opt: 'Platin (PT)' },
+                            ];
+                            for (let cm of codeMap) {
+                                if (target.toUpperCase().includes(cm.k) || target.toLowerCase().includes(cm.opt.split(' ')[0].toLowerCase())) {
+                                    for (let opt of metalSelect.options) {
+                                        if (opt.value.includes(cm.k) || opt.value === cm.opt) {
+                                            metalSelect.value = opt.value;
+                                            matched = true;
+                                            break;
+                                        }
+                                    }
+                                    if (matched) break;
+                                }
+                            }
+                        }
+                        metalSelect.style.borderColor = 'var(--gold-primary)';
+                        setTimeout(() => { metalSelect.style.borderColor = ''; }, 2500);
                     }
 
                     setVal('input[name="standard_name"]', d.standard_name);
@@ -680,7 +735,7 @@
                     }
 
                     setVal('input[name="roi_5y"]', d.roi_5y);
-                    setVal('input[name="avg_hammer_price"]', d.avg_hammer_price || (d.estimated_value_min ? Math.round(d.estimated_value_min * 0.9) : null));
+                    setVal('input[name="avg_hammer_price"]', d.avg_hammer_price ? Math.round(d.avg_hammer_price) : (d.estimated_value_min ? Math.round(d.estimated_value_min * 0.95) : ''));
                     
                     const liqSelect = document.querySelector('select[name="liquidity_grade"]');
                     if (liqSelect && d.liquidity_grade) {
@@ -693,8 +748,8 @@
                     }
 
                     setVal('input[name="academic_source"]', d.academic_source);
-                    setVal('input[name="estimated_value_min"]', d.estimated_value_min);
-                    setVal('input[name="estimated_value_max"]', d.estimated_value_max);
+                    setVal('input[name="estimated_value_min"]', d.estimated_value_min ? Math.round(d.estimated_value_min) : '');
+                    setVal('input[name="estimated_value_max"]', d.estimated_value_max ? Math.round(d.estimated_value_max) : '');
 
                     // 3. Sekme 3 Görsellerini Canlı Güncelle
                     if (d.avers_image_url) {
@@ -734,6 +789,32 @@
         document.addEventListener('DOMContentLoaded', function() {
             const btn = document.getElementById('btn_fetch_coin');
             if (btn) btn.addEventListener('click', fetchCoinFromUrl);
+
+            // Virgüllü giriş yapıldığında (ör. 118,8) MySQL ve HTML5 validasyonunun takılmaması için otomatik noktaya çevir
+            const coinFormEl = document.getElementById('coinForm');
+            if (coinFormEl) {
+                const numFields = ['estimated_value_min', 'estimated_value_max', 'avg_hammer_price', 'weight_grams', 'diameter_mm'];
+                
+                numFields.forEach(function(fieldName) {
+                    const inp = document.querySelector('input[name="' + fieldName + '"]');
+                    if (inp) {
+                        inp.addEventListener('input', function() {
+                            if (this.value && this.value.includes(',')) {
+                                this.value = this.value.replace(',', '.');
+                            }
+                        });
+                    }
+                });
+
+                coinFormEl.addEventListener('submit', function() {
+                    numFields.forEach(function(fieldName) {
+                        const inp = document.querySelector('input[name="' + fieldName + '"]');
+                        if (inp && inp.value) {
+                            inp.value = inp.value.toString().trim().replace(',', '.');
+                        }
+                    });
+                });
+            }
         });
     </script>
 </body>

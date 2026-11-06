@@ -123,8 +123,13 @@
 
         .badge { display: inline-block; padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 700; }
         .badge-gold { background: #FEF3C7; color: #92400E; border: 1px solid #FDE68A; }
-        .badge-silver { background: #F1F5F9; color: #475569; border: 1px solid #E2E8F0; }
+        .badge-silver { background: #F1F5F9; color: #475569; border: 1px solid #CBD5E1; }
         .badge-bronze { background: #FFEDD5; color: #9A3412; border: 1px solid #FED7AA; }
+        .badge-electrum { background: #FEF9C3; color: #854D0E; border: 1px solid #FACC15; }
+        .badge-billon { background: #E2E8F0; color: #334155; border: 1px solid #94A3B8; }
+        .badge-brass { background: #FDF4E7; color: #B45309; border: 1px solid #FCD34D; }
+        .badge-lead { background: #E5E7EB; color: #374151; border: 1px solid #9CA3AF; }
+        .badge-plat { background: #F0FDF4; color: #166534; border: 1px solid #86EFAC; }
 
         .switch { position: relative; display: inline-block; width: 44px; height: 24px; }
         .switch input { opacity: 0; width: 0; height: 0; }
@@ -180,10 +185,14 @@
             <input type="text" name="q" value="<?= htmlspecialchars($_GET['q'] ?? '') ?>" placeholder="Sikke başlığı veya hükümdar ara..." class="filter-input" style="flex: 1; min-width: 250px;">
             <select name="metal" class="filter-input">
                 <option value="">Tüm Madenler</option>
-                <option value="Altın (AU)" <?= ($_GET['metal'] ?? '') === 'Altın (AU)' ? 'selected' : '' ?>>Altın (AU)</option>
-                <option value="Gümüş (AR)" <?= ($_GET['metal'] ?? '') === 'Gümüş (AR)' ? 'selected' : '' ?>>Gümüş (AR)</option>
-                <option value="Bronz (AE)" <?= ($_GET['metal'] ?? '') === 'Bronz (AE)' ? 'selected' : '' ?>>Bronz (AE)</option>
-                <option value="Elektrum (EL)" <?= ($_GET['metal'] ?? '') === 'Elektrum (EL)' ? 'selected' : '' ?>>Elektrum (EL)</option>
+                <option value="Altın" <?= (stripos($_GET['metal'] ?? '', 'Altın') !== false || ($_GET['metal'] ?? '') === 'AV' || ($_GET['metal'] ?? '') === 'AU') ? 'selected' : '' ?>>Altın (AV / AU)</option>
+                <option value="Gümüş" <?= (stripos($_GET['metal'] ?? '', 'Gümüş') !== false || ($_GET['metal'] ?? '') === 'AR') ? 'selected' : '' ?>>Gümüş (AR)</option>
+                <option value="Bronz" <?= (stripos($_GET['metal'] ?? '', 'Bronz') !== false || ($_GET['metal'] ?? '') === 'AE') ? 'selected' : '' ?>>Bronz (AE)</option>
+                <option value="Elektrum" <?= (stripos($_GET['metal'] ?? '', 'Elektrum') !== false || ($_GET['metal'] ?? '') === 'EL') ? 'selected' : '' ?>>Elektrum (EL)</option>
+                <option value="Bilyon" <?= (stripos($_GET['metal'] ?? '', 'Bilyon') !== false || ($_GET['metal'] ?? '') === 'BI') ? 'selected' : '' ?>>Bilyon (BI)</option>
+                <option value="Pirinç" <?= (stripos($_GET['metal'] ?? '', 'Pirinç') !== false || ($_GET['metal'] ?? '') === 'OR') ? 'selected' : '' ?>>Pirinç (OR)</option>
+                <option value="Kurşun" <?= (stripos($_GET['metal'] ?? '', 'Kurşun') !== false || ($_GET['metal'] ?? '') === 'PB') ? 'selected' : '' ?>>Kurşun (PB)</option>
+                <option value="Platin" <?= (stripos($_GET['metal'] ?? '', 'Platin') !== false || ($_GET['metal'] ?? '') === 'PT') ? 'selected' : '' ?>>Platin (PT)</option>
             </select>
             <select name="civilization_id" class="filter-input">
                 <option value="">Tüm Medeniyetler</option>
@@ -269,8 +278,14 @@
                                 </div>
                             </td>
                             <td>
-                                <strong style="font-size: 14px; color: var(--text-dark);"><?= htmlspecialchars($item['title']) ?></strong>
-                                <div style="font-size: 12px; color: var(--text-muted);"><?= htmlspecialchars($item['ruler'] ?? '-') ?> (<?= $item['year_start'] ?> / <?= $item['year_end'] ?>)</div>
+                                <?php
+                                    $displayTitle = html_entity_decode((string)($item['title'] ?? ''), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+                                    $displayRuler = html_entity_decode((string)($item['ruler'] ?? '-'), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+                                    // AU → AV normalizasyonu (başlıkta)
+                                    $displayTitle = str_replace(['Altın (AU)', 'AV Aureus'], ['Altın (AV)', 'AV Aureus'], $displayTitle);
+                                ?>
+                                <strong style="font-size: 14px; color: var(--text-dark);"><?= htmlspecialchars($displayTitle) ?></strong>
+                                <div style="font-size: 12px; color: var(--text-muted);"><?= htmlspecialchars($displayRuler) ?> (<?= $item['year_start'] ?> / <?= $item['year_end'] ?>)</div>
                             </td>
                             <td>
                                 <span style="font-weight: 600;"><?= htmlspecialchars($item['civilization_name'] ?? 'Bilinmeyen') ?></span>
@@ -279,11 +294,20 @@
                             <td>
                                 <?php 
                                     $bClass = 'badge-silver';
-                                    if (str_contains($item['metal_type'], 'Altın')) $bClass = 'badge-gold';
-                                    elseif (str_contains($item['metal_type'], 'Bronz')) $bClass = 'badge-bronze';
+                                    $mt = $item['metal_type'];
+                                    // AU → AV normalizasyonu (ekranda gösterim)
+                                    $mtDisplay = str_replace('Altın (AU)', 'Altın (AV)', $mt);
+                                    if (str_contains($mt, 'Altın') || str_contains($mt, 'AV') || str_contains($mt, 'AU')) $bClass = 'badge-gold';
+                                    elseif (str_contains($mt, 'Gümüş') || str_contains($mt, 'AR')) $bClass = 'badge-silver';
+                                    elseif (str_contains($mt, 'Bronz') || str_contains($mt, 'AE') || str_contains($mt, 'Bakır')) $bClass = 'badge-bronze';
+                                    elseif (str_contains($mt, 'Elektrum') || str_contains($mt, 'EL')) $bClass = 'badge-electrum';
+                                    elseif (str_contains($mt, 'Bilyon') || str_contains($mt, 'BI')) $bClass = 'badge-billon';
+                                    elseif (str_contains($mt, 'Pirinç') || str_contains($mt, 'OR')) $bClass = 'badge-brass';
+                                    elseif (str_contains($mt, 'Kurşun') || str_contains($mt, 'PB')) $bClass = 'badge-lead';
+                                    elseif (str_contains($mt, 'Platin') || str_contains($mt, 'PT')) $bClass = 'badge-plat';
                                 ?>
-                                <span class="badge <?= $bClass ?>"><?= htmlspecialchars($item['metal_type']) ?></span>
-                                <div style="font-size: 11.5px; color: var(--text-muted); margin-top: 2px;"><?= htmlspecialchars($item['standard_name']) ?></div>
+                                <span class="badge <?= $bClass ?>"><?= htmlspecialchars($mtDisplay) ?></span>
+                                <div style="font-size: 11.5px; color: var(--text-muted); margin-top: 2px;"><?= htmlspecialchars(html_entity_decode((string)($item['standard_name'] ?? ''), ENT_QUOTES | ENT_HTML5, 'UTF-8')) ?></div>
                             </td>
                             <td><?= $item['weight_grams'] ? $item['weight_grams'] . ' gr' : '-' ?> / <?= $item['diameter_mm'] ? $item['diameter_mm'] . ' mm' : '-' ?></td>
                             <td>

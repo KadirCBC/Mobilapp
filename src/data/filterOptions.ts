@@ -25,42 +25,63 @@ export interface SortOptionItem {
   iconName: string;
 }
 
-// 1. METALS (Madenler / Nümismatik Kısaltmaları)
+// 1. METALS (Madenler / Nümismatik Kısaltmaları - 8 Resmi Standart)
 export const METALS: MetalOption[] = [
   {
     id: 'gold',
-    name: 'Altın (AU)',
-    code: 'AU',
+    name: 'Altın (AV / AU)',
+    code: 'AV',
     color: '#D4AF37',
-    description: 'Stater, solidus ve duka serileri gibi saf altın darplar.',
+    description: 'Aurum: Stater, aureus, solidus ve duka serileri gibi altın darplar.',
   },
   {
     id: 'silver',
     name: 'Gümüş (AR)',
     code: 'AR',
     color: '#CBD5E1',
-    description: 'Drahmi, tetradrahmi ve denarius serisi gümüş madenleri.',
+    description: 'Argentum: Drahmi, tetradrahmi, denarius ve obol serisi gümüş madenleri.',
   },
   {
     id: 'bronze',
     name: 'Bronz / Bakır (AE)',
     code: 'AE',
     color: '#CD7F32',
-    description: 'As, sestertius ve follis gibi yaygın bronz ve bakır sikkeler.',
+    description: 'Aes: Æ serileri, sestertius, as ve follis gibi yaygın bronz ve bakır sikkeler.',
   },
   {
     id: 'electrum',
     name: 'Elektrum (EL)',
     code: 'EL',
     color: '#E2C974',
-    description: 'Lidya ve Erken Grek dönemine özgü doğal altın-gümüş alaşımı.',
+    description: 'Electrum: Lidya ve Erken Grek dönemine özgü doğal veya yapay altın-gümüş alaşımı.',
   },
   {
     id: 'billon',
-    name: 'Bilyon',
+    name: 'Bilyon (BI)',
     code: 'BI',
     color: '#94A3B8',
-    description: 'Düşük gümüş oranına sahip bakır-gümüş nümismatik alaşımı.',
+    description: 'Billon: Gümüş oranı %50 altına düşürülmüş düşük ayarlı gümüş-bakır alaşımı.',
+  },
+  {
+    id: 'brass',
+    name: 'Pirinç (OR)',
+    code: 'OR',
+    color: '#D97706',
+    description: 'Orichalcum: Roma İmparatorluğu sestertius ve dupondius darplarında çinko-bakır alaşımı.',
+  },
+  {
+    id: 'lead',
+    name: 'Kurşun (PB)',
+    code: 'PB',
+    color: '#64748B',
+    description: 'Plumbum: Mühürler, kurşun ağırlıklar veya test/jeton baskıları.',
+  },
+  {
+    id: 'platinum',
+    name: 'Platin (PT)',
+    code: 'PT',
+    color: '#10B981',
+    description: 'Platinum: Rusya ve geç modern dönem nadir platin hatıra darpları.',
   },
 ];
 
