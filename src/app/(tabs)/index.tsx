@@ -526,6 +526,41 @@ export default function HomeScreen() {
   // Canlı katalogdaki toplam eser sayısı (MySQL veritabanı canlı sayısı)
   const totalCatalogCount = hasLoadedFromServer ? coins.length : (totalServerCount || 0);
 
+  // Canlı katalogdaki aktif medeniyet sayısı (sikkelerin ait olduğu benzersiz medeniyetler)
+  const activeCivilizationsCount = useMemo(() => {
+    if (!coins || coins.length === 0) return 0;
+    const uniqueCivs = new Set<string>();
+    coins.forEach((c) => {
+      const civ = c.civilization?.trim();
+      if (civ && civ !== 'Bilinmiyor' && civ !== '-') {
+        uniqueCivs.add(civ.toLowerCase());
+      }
+    });
+    return uniqueCivs.size;
+  }, [coins]);
+
+  // Canlı katalogdaki aktif antik darphane sayısı (sikkelerin basıldığı benzersiz darphaneler)
+  const activeMintsCount = useMemo(() => {
+    if (!coins || coins.length === 0) return 0;
+    const uniqueMints = new Set<string>();
+    coins.forEach((c) => {
+      const m = c.mint?.trim();
+      if (m && m !== '-' && m !== 'Bilinmiyor' && !m.includes('Seçiniz')) {
+        uniqueMints.add(m.toLowerCase());
+      } else {
+        const text = `${c.title} ${c.description || ''}`.toLowerCase();
+        for (const mintName of MINTS_AND_REGIONS) {
+          const cleanMint = mintName.split('(')[0].trim().toLowerCase();
+          if (cleanMint.length > 3 && text.includes(cleanMint)) {
+            uniqueMints.add(cleanMint);
+            break;
+          }
+        }
+      }
+    });
+    return uniqueMints.size;
+  }, [coins]);
+
   const handleCoinPress = (id: string) => {
     router.push(`/coin/${id}` as any);
   };
@@ -787,7 +822,7 @@ export default function HomeScreen() {
               </TouchableOpacity>
             )}
 
-            {/* 3. HIZLI İSTATİSTİK ŞERİDİ */}
+            {/* 3. HIZLI İSTATİSTİK ŞERİDİ (CANLI VE ETKİLEŞİMLİ VERİLER) */}
             <View
               style={[
                 styles.statsStrip,
@@ -796,33 +831,51 @@ export default function HomeScreen() {
                   borderColor: colors.border,
                 },
               ]}>
-              <View style={styles.statBox}>
+              {/* 1. Kayıtlı Eser */}
+              <TouchableOpacity
+                activeOpacity={0.7}
+                onPress={() => handleResetAllFilters()}
+                style={styles.statBox}>
                 <Ionicons name="albums-outline" size={18} color={colors.primary} />
-                <Text style={[styles.statValue, { color: colors.textPrimary }]}>3.400+</Text>
+                <Text style={[styles.statValue, { color: colors.textPrimary }]}>
+                  {totalCatalogCount.toLocaleString('tr-TR')}
+                </Text>
                 <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
                   Kayıtlı Eser
                 </Text>
-              </View>
+              </TouchableOpacity>
 
               <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
 
-              <View style={styles.statBox}>
+              {/* 2. Medeniyet */}
+              <TouchableOpacity
+                activeOpacity={0.7}
+                onPress={() => router.push('/(tabs)/categories' as any)}
+                style={styles.statBox}>
                 <Ionicons name="earth-outline" size={18} color={colors.primary} />
-                <Text style={[styles.statValue, { color: colors.textPrimary }]}>12</Text>
+                <Text style={[styles.statValue, { color: colors.textPrimary }]}>
+                  {activeCivilizationsCount}
+                </Text>
                 <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
                   Medeniyet
                 </Text>
-              </View>
+              </TouchableOpacity>
 
               <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
 
-              <View style={styles.statBox}>
-                <Ionicons name="trending-up-outline" size={18} color={colors.primary} />
-                <Text style={[styles.statValue, { color: colors.textPrimary }]}>Canlı</Text>
-                <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
-                  Müzayede
+              {/* 3. Antik Darphane */}
+              <TouchableOpacity
+                activeOpacity={0.7}
+                onPress={() => router.push('/map')}
+                style={styles.statBox}>
+                <Ionicons name="compass-outline" size={18} color={colors.primary} />
+                <Text style={[styles.statValue, { color: colors.textPrimary }]}>
+                  {activeMintsCount}
                 </Text>
-              </View>
+                <Text style={[styles.statLabel, { color: colors.textSecondary }]} numberOfLines={1}>
+                  Antik Darphane
+                </Text>
+              </TouchableOpacity>
             </View>
 
             {/* ANTİK DARPHANELER ATLASI MODÜLÜ (HARİTA BANNERI) */}
@@ -956,7 +1009,7 @@ export default function HomeScreen() {
                   Tümü
                 </Text>
                 <Text style={[styles.civEra, { color: colors.textMuted }]}>
-                  Tüm Çağlar
+                  {totalCatalogCount} Eser
                 </Text>
               </TouchableOpacity>
 
@@ -964,6 +1017,12 @@ export default function HomeScreen() {
               {CATEGORIES.map((civ) => {
                 const isActive =
                   selectedCivilization === civ.name || selectedCivilization === civ.shortName;
+                const civCoinCount = coins.filter((c) => {
+                  const cCiv = (c.civilization || '').toLowerCase();
+                  const targetName = civ.name.toLowerCase();
+                  const targetShort = civ.shortName.toLowerCase();
+                  return cCiv.includes(targetShort) || cCiv.includes(targetName) || targetName.includes(cCiv);
+                }).length;
                 return (
                   <TouchableOpacity
                     key={civ.id}
@@ -1007,7 +1066,7 @@ export default function HomeScreen() {
                       {civ.shortName || civ.name}
                     </Text>
                     <Text style={[styles.civEra, { color: colors.textMuted }]}>
-                      {civ.coinCount} Eser
+                      {civCoinCount} Eser
                     </Text>
                   </TouchableOpacity>
                 );
