@@ -30,7 +30,7 @@ import {
   SortOptionItem,
   createDefaultFilterState,
 } from '@/data/filterOptions';
-import { MOCK_COINS } from '@/data/mockData';
+import { CoinItem, MOCK_COINS } from '@/data/mockData';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -55,6 +55,7 @@ export interface FilterModalProps {
   onClose: () => void;
   currentFilters: FilterState;
   onApplyFilters: (filters: FilterState) => void;
+  coins?: CoinItem[];
 }
 
 export const FilterModal: React.FC<FilterModalProps> = ({
@@ -62,6 +63,7 @@ export const FilterModal: React.FC<FilterModalProps> = ({
   onClose,
   currentFilters,
   onApplyFilters,
+  coins,
 }) => {
   // Aktif Sekme: 'basic' (Temel Filtreler) veya 'expert' (Uzman / Nümizmat)
   const [activeTab, setActiveTab] = useState<'basic' | 'expert'>('basic');
@@ -117,7 +119,8 @@ export const FilterModal: React.FC<FilterModalProps> = ({
 
   // Eşleşen tahmini eser sayısı
   const matchingCount = useMemo(() => {
-    return MOCK_COINS.filter((coin) => {
+    const listToFilter = (coins && coins.length > 0) ? coins : MOCK_COINS;
+    return listToFilter.filter((coin) => {
       // 1. Maden / Materyal filtresi
       if (draftFilters.metals.length > 0) {
         const coinMat = coin.material.toLowerCase();
@@ -204,7 +207,7 @@ export const FilterModal: React.FC<FilterModalProps> = ({
 
       return true;
     }).length;
-  }, [draftFilters]);
+  }, [draftFilters, coins]);
 
   // Çoklu seçim toggle fonksiyonları
   const toggleMetal = (metalId: string) => {

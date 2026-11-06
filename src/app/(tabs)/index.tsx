@@ -1,6 +1,8 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
+  AppState,
+  AppStateStatus,
   FlatList,
   Platform,
   ScrollView,
@@ -11,7 +13,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
@@ -117,7 +119,7 @@ export default function HomeScreen() {
 
       const res = await api.coins.list({
         page: targetPage,
-        per_page: 20,
+        per_page: 100,
         q: searchQuery.trim() || undefined,
         metals: metalsParam,
         civilizations: civsParam.length > 0 ? civsParam : undefined,
@@ -148,6 +150,33 @@ export default function HomeScreen() {
       setIsRefreshing(false);
     }
   };
+
+  // 1. Ekran odaklandığında (başka sekmeden veya admin panelden dönüldüğünde) anında en güncel veriyi çek
+  useFocusEffect(
+    useCallback(() => {
+      fetchCoins(1, true);
+    }, [])
+  );
+
+  // 2. Mobil uygulama arka plandan ön plana geçtiğinde hemen senkronize et
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (state: AppStateStatus) => {
+      if (state === 'active') {
+        fetchCoins(1, true);
+      }
+    });
+    return () => sub.remove();
+  }, []);
+
+  // 3. Admin panelden eklenen eserlerin anlık yansıması için düzenli arka plan senkronizasyonu (her 8 sn)
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (!isLoading && !isRefreshing && searchQuery === '' && selectedCivilization === 'Tümü' && selectedPreset === 'all') {
+        fetchCoins(1, true);
+      }
+    }, 8000);
+    return () => clearInterval(interval);
+  }, [isLoading, isRefreshing, searchQuery, selectedCivilization, selectedPreset]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -489,7 +518,10 @@ export default function HomeScreen() {
     }
 
     return list;
-  }, [searchQuery, filters, selectedCivilization, selectedPreset]);
+  }, [coins, searchQuery, filters, selectedCivilization, selectedPreset]);
+
+  // Canlı katalogdaki toplam eser sayısı (MySQL veritabanı veya mock fallback)
+  const totalCatalogCount = (coins && coins.length > 0) ? coins.length : (totalServerCount || MOCK_COINS.length);
 
   const handleCoinPress = (id: string) => {
     router.push(`/coin/${id}` as any);
@@ -548,7 +580,7 @@ export default function HomeScreen() {
                 <Text style={[styles.topCountBadgeHighlight, { color: colors.primary }]}>
                   {filteredCoins.length}
                 </Text>{' '}
-                / {MOCK_COINS.length} Eser
+                / {totalCatalogCount} Eser
               </Text>
             </View>
           </View>
@@ -654,7 +686,7 @@ export default function HomeScreen() {
 
       {/* SİKKE LİSTESİ (Ön & Arka Yüz Yan Yana Dairesel Kartlar) */}
       <FlatList
-        data={coins}
+        data={filteredCoins}
         keyExtractor={(item) => String(item.id)}
         renderItem={({ item }) => (
           <CoinCard item={item} onPress={() => handleCoinPress(item.id)} />
@@ -995,7 +1027,7 @@ export default function HomeScreen() {
                   { backgroundColor: colors.surfaceSubtle, borderColor: colors.border },
                 ]}>
                 <Text style={[styles.countBadgeText, { color: colors.primary }]}>
-                  {totalServerCount} Eser
+                  {filteredCoins.length} Eser
                 </Text>
               </View>
             </View>
@@ -1068,6 +1100,7 @@ export default function HomeScreen() {
         onApplyFilters={(newFilters) => {
           setFilters(newFilters);
         }}
+        coins={coins}
       />
 
       {/* 7. ÜÇ ÇİZGİLİ ANA MENÜ ÇEKMECESİ */}

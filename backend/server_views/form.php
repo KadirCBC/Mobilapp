@@ -186,11 +186,13 @@
                     </div>
                     <!-- Ayrıştırılan Temel Veriler -->
                     <div style="flex: 1; min-width: 280px; font-size: 13.5px; color: #334155; line-height: 1.7;">
-                        <div><strong>🏛️ Medeniyet & Hükümdar:</strong> <span id="card_civ_ruler"></span></div>
+                        <div><strong>🏛️ Medeniyet & Hükümdar:</strong> <span id="card_civ_ruler"></span> &bull; <span id="card_rarity_badge" style="background: rgba(158,123,59,0.15); color: #9E7B3B; padding: 2px 7px; border-radius: 4px; font-weight: 700; font-size: 11.5px;"></span></div>
                         <div><strong>⚖️ Maden & Standart:</strong> <span id="card_metal_std"></span> &bull; <span id="card_weight_dia"></span></div>
-                        <div><strong>📜 Tarih & Dönem:</strong> <span id="card_years"></span></div>
-                        <div style="color: #059669; font-weight: 600; font-size: 12.5px; margin-top: 4px;">
-                            ✨ Eser başlığı, maden, çap, ağırlık, ön/arka yüz açıklamaları ve fotoğraflar aşağıdaki forma yerleştirildi.
+                        <div><strong>📜 Tarih & Dönem:</strong> <span id="card_years"></span> &bull; <strong>📚 Ref:</strong> <span id="card_reference"></span></div>
+                        <div id="card_market_row"><strong>📈 5 Yıllık ROI & Değerleme:</strong> <span id="card_market_metrics"></span></div>
+                        <div id="card_hist_preview" style="display: none; margin-top: 6px; padding: 8px 12px; background: #FFFFFF; border-left: 3px solid #9E7B3B; border-radius: 6px; font-size: 12px; color: #475569; font-style: italic;"></div>
+                        <div style="color: #059669; font-weight: 600; font-size: 12.5px; margin-top: 6px;">
+                            ✨ Eser başlığı, maden, çap, ağırlık, tarihsel arka plan, ön/arka yüz açıklamaları ve fotoğraflar aşağıdaki forma yerleştirildi.
                         </div>
                     </div>
                 </div>
@@ -220,6 +222,7 @@
         </div>
 
         <form id="coinForm" method="POST" action="/admin/coins" enctype="multipart/form-data">
+            <input type="hidden" name="coin_id" id="coin_id" value="<?= htmlspecialchars($coin['id'] ?? '') ?>">
             <input type="hidden" name="avers_image" id="avers_image" value="<?= htmlspecialchars($coin['avers_image'] ?? '') ?>">
             <input type="hidden" name="revers_image" id="revers_image" value="<?= htmlspecialchars($coin['revers_image'] ?? '') ?>">
             <input type="hidden" name="avers_imported_path" id="avers_imported_path" value="">
@@ -324,7 +327,7 @@
                         <div class="form-group">
                             <label class="form-label" for="rarity_code">Nadirlik Kodu</label>
                             <select name="rarity_code" id="rarity_code" class="form-control">
-                                <?php foreach (['C' => 'C (Yaygın)', 'S' => 'S (Kıt)', 'R1' => 'R1 (Nadir)', 'R2' => 'R2 (Çok Nadir)', 'Ünik' => 'Ünik'] as $rk => $rv): ?>
+                                <?php foreach (['C' => 'C (Yaygın)', 'S' => 'S (Kıt)', 'R1' => 'R1 (Nadir)', 'R2' => 'R2 (Çok Nadir)', 'R3' => 'R3 (Son Derece Nadir)', 'Ünik' => 'Ünik (Tek Örnek)'] as $rk => $rv): ?>
                                     <option value="<?= $rk ?>" <?= (($coin['rarity_code'] ?? 'C') === $rk) ? 'selected' : '' ?>><?= $rv ?></option>
                                 <?php endforeach; ?>
                             </select>
@@ -376,6 +379,20 @@
                             </div>
                         </div>
                     </div>
+
+                    <!-- Tarihsel Arka Plan & Nümismatik Önemi (Gemini Destekli Zengin Alan) -->
+                    <div class="form-group" style="margin-top: 22px; padding: 20px; background: #FFFFFF; border: 1.5px solid rgba(158,123,59,0.3); border-radius: 12px; box-shadow: 0 2px 8px rgba(158,123,59,0.05);">
+                        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+                            <label class="form-label" for="historical_context" style="display: flex; align-items: center; gap: 8px; font-size: 14px; color: #1E293B;">
+                                <span style="color: #9E7B3B; font-size: 16px;">📖</span> Tarihsel Arka Plan & Nümismatik Önemi
+                            </label>
+                            <span style="background: rgba(158,123,59,0.12); color: #9E7B3B; font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 12px;">
+                                ✨ GEMINI AI AKADEMİK ANLATIM
+                            </span>
+                        </div>
+                        <textarea name="historical_context" id="historical_context" class="form-control" rows="5" placeholder="Eserin basıldığı dönemin siyasi ve iktisadi olayları, hükümdarın durumu, tasvir edilen tanrı/sembol ve nümizmatik önemi hakkında akademik Türkçe paragraf..."><?= htmlspecialchars($coin['historical_context'] ?? '') ?></textarea>
+                        <div class="form-helper" style="margin-top: 6px;">Mobil uygulamanın detay sayfasındaki "Tarihsel Arka Plan & Nümismatik Önemi" kartında bu açıklama gösterilir.</div>
+                    </div>
                 </div>
             </div>
 
@@ -401,10 +418,43 @@
                         </div>
                     </div>
 
-                    <div class="form-group">
-                        <label class="form-label" for="reference_codes">Standart Nümizmatik Referans Kodları (RIC, BMC, Sear)</label>
-                        <input type="text" name="reference_codes" id="reference_codes" class="form-control" value="<?= htmlspecialchars($coin['reference_codes'] ?? '') ?>" placeholder="Örn: RIC: II 721, BMCRE: 198" style="margin-bottom: 8px;">
-                        <textarea name="reference_codes_raw" id="reference_codes_raw" class="form-control" rows="3" placeholder="RIC: II 721&#10;BMCRE: 198&#10;RSC: 273"></textarea>
+                    <div style="margin-top: 20px; margin-bottom: 16px; padding-bottom: 8px; border-bottom: 1.5px dashed var(--border-subtle); display: flex; align-items: center; gap: 8px;">
+                        <span style="color: var(--gold-primary); font-size: 16px;">📈</span>
+                        <h3 style="font-size: 14px; font-weight: 700; color: var(--text-dark);">Müzayede Endeksi, Getiri & Likidite Metrikleri</h3>
+                    </div>
+
+                    <div class="form-grid-3">
+                        <div class="form-group">
+                            <label class="form-label" for="roi_5y">5 Yıllık Değer Artışı (ROI %)</label>
+                            <input type="text" name="roi_5y" id="roi_5y" class="form-control" value="<?= htmlspecialchars($coin['roi_5y'] ?? '+49%') ?>" placeholder="Örn: +49%">
+                            <div class="form-helper">Mobil grafikteki getiri yüzdesi.</div>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="avg_hammer_price">Ortalama Çekiç Fiyatı ($)</label>
+                            <input type="number" step="0.01" name="avg_hammer_price" id="avg_hammer_price" class="form-control" value="<?= htmlspecialchars($coin['avg_hammer_price'] ?? '') ?>" placeholder="104">
+                            <div class="form-helper">Son 5 yıldaki müzayede ortalaması.</div>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="liquidity_grade">Likidite Derecesi</label>
+                            <select name="liquidity_grade" id="liquidity_grade" class="form-control">
+                                <?php foreach (['A+ Üstün', 'A Yüksek', 'B+ Orta', 'B Normal', 'C Düşük'] as $lq): ?>
+                                    <option value="<?= $lq ?>" <?= (($coin['liquidity_grade'] ?? 'A+ Üstün') === $lq) ? 'selected' : '' ?>><?= $lq ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                            <div class="form-helper">Piyasadaki alıcı talebi.</div>
+                        </div>
+                    </div>
+
+                    <div class="form-group" style="margin-top: 16px;">
+                        <label class="form-label" for="reference_codes">Standart Nümizmatik Referans Kodları (RIC, BMC, Sear, RPC, Cohen)</label>
+                        <input type="text" name="reference_codes" id="reference_codes" class="form-control" value="<?= htmlspecialchars($coin['reference_codes'] ?? '') ?>" placeholder="Örn: RIC: III 1736, Cohen: 21, BMC: 241" style="margin-bottom: 8px;">
+                        <textarea name="reference_codes_raw" id="reference_codes_raw" class="form-control" rows="3" placeholder="RIC: III 1736&#10;Cohen: 21&#10;BMCRE: 241"></textarea>
+                    </div>
+
+                    <div class="form-group" style="margin-top: 16px;">
+                        <label class="form-label" for="academic_source">İlgili Temel Akademik Yayın Künyesi</label>
+                        <input type="text" name="academic_source" id="academic_source" class="form-control" value="<?= htmlspecialchars($coin['academic_source'] ?? '') ?>" placeholder="Örn: The Roman Imperial Coinage (RIC): Vol. III - Antoninus Pius to Commodus (Spink & Son)">
+                        <div class="form-helper">Mobil detay ekranındaki akademik korpus kartında görüntülenir.</div>
                     </div>
 
                     <div class="form-grid-2" style="margin-top: 24px;">
@@ -509,6 +559,10 @@
                         document.getElementById('preview_card_title').innerText = d.title || 'Antik Sikke';
                         document.getElementById('preview_card_badge').innerText = d.is_ai_translated ? '✨ GEMINI AI İLE ÇEVRİLDİ' : '🏛️ NÜMİZMATİK KÜTÜPHANE DOĞRULAMASI';
                         document.getElementById('card_civ_ruler').innerText = (d.civilization || 'Bilinmiyor') + (d.ruler ? ' • İmp. ' + d.ruler : '');
+                        
+                        const rarityEl = document.getElementById('card_rarity_badge');
+                        if (rarityEl) rarityEl.innerText = '⭐ Nadirlik: ' + (d.rarity_code || 'C');
+
                         document.getElementById('card_metal_std').innerText = (d.metal_type || '') + ' ' + (d.standard_name || '');
                         
                         let physicalParts = [];
@@ -525,6 +579,32 @@
                             yearStr += ' – ' + (d.year_end < 0 ? 'M.Ö. ' + Math.abs(d.year_end) : 'M.S. ' + d.year_end);
                         }
                         document.getElementById('card_years').innerText = yearStr || 'Dönem Belirtilmedi';
+
+                        const refEl = document.getElementById('card_reference');
+                        if (refEl) {
+                            if (d.reference_codes) {
+                                refEl.innerText = typeof d.reference_codes === 'object'
+                                    ? Object.entries(d.reference_codes).map(([k,v]) => `${k} ${v}`).join(', ')
+                                    : d.reference_codes;
+                            } else {
+                                refEl.innerText = 'Tipolojik Kayıt';
+                            }
+                        }
+
+                        const metricsEl = document.getElementById('card_market_metrics');
+                        if (metricsEl) {
+                            metricsEl.innerText = (d.roi_5y || '+49%') + ' • Likidite: ' + (d.liquidity_grade || 'A+ Üstün') + ' • Tahmini: $' + (d.estimated_value_min || '120') + ' - $' + (d.estimated_value_max || '160');
+                        }
+
+                        const histPrev = document.getElementById('card_hist_preview');
+                        if (histPrev) {
+                            if (d.historical_context) {
+                                histPrev.style.display = 'block';
+                                histPrev.innerText = '📖 ' + d.historical_context;
+                            } else {
+                                histPrev.style.display = 'none';
+                            }
+                        }
                     }
 
                     // 2. Form Alanlarını Otomatik Doldur
@@ -565,8 +645,18 @@
                     const condSelect = document.querySelector('select[name="condition_grade"]');
                     if (condSelect && d.condition_grade) {
                         for (let opt of condSelect.options) {
-                            if (opt.value.toUpperCase() === d.condition_grade.toUpperCase()) {
+                            if (opt.value.toUpperCase() === d.condition_grade.toUpperCase() || opt.value.toUpperCase().startsWith(d.condition_grade.toUpperCase())) {
                                 condSelect.value = opt.value;
+                                break;
+                            }
+                        }
+                    }
+
+                    const raritySelect = document.querySelector('select[name="rarity_code"]');
+                    if (raritySelect && d.rarity_code) {
+                        for (let opt of raritySelect.options) {
+                            if (opt.value.toUpperCase() === d.rarity_code.toUpperCase() || opt.value.toUpperCase().startsWith(d.rarity_code.toUpperCase())) {
+                                raritySelect.value = opt.value;
                                 break;
                             }
                         }
@@ -574,6 +664,12 @@
 
                     setVal('textarea[name="avers_description"]', d.avers_description);
                     setVal('textarea[name="revers_description"]', d.revers_description);
+                    setVal('textarea[name="historical_context"]', d.historical_context);
+                    const histDirect = document.getElementById('historical_context');
+                    if (histDirect && d.historical_context) {
+                        histDirect.value = d.historical_context;
+                        histDirect.style.borderColor = 'var(--gold-primary)';
+                    }
 
                     if (d.reference_codes) {
                         const refStr = typeof d.reference_codes === 'object' 
@@ -583,6 +679,20 @@
                         setVal('textarea[name="reference_codes_raw"]', refStr.replace(/, /g, '\n'));
                     }
 
+                    setVal('input[name="roi_5y"]', d.roi_5y);
+                    setVal('input[name="avg_hammer_price"]', d.avg_hammer_price || (d.estimated_value_min ? Math.round(d.estimated_value_min * 0.9) : null));
+                    
+                    const liqSelect = document.querySelector('select[name="liquidity_grade"]');
+                    if (liqSelect && d.liquidity_grade) {
+                        for (let opt of liqSelect.options) {
+                            if (opt.value.toLowerCase().includes(d.liquidity_grade.toLowerCase())) {
+                                liqSelect.value = opt.value;
+                                break;
+                            }
+                        }
+                    }
+
+                    setVal('input[name="academic_source"]', d.academic_source);
                     setVal('input[name="estimated_value_min"]', d.estimated_value_min);
                     setVal('input[name="estimated_value_max"]', d.estimated_value_max);
 

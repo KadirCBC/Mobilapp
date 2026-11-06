@@ -221,14 +221,18 @@ export const AuctionValueIndex: React.FC<AuctionValueIndexProps> = ({ coin }) =>
           <Text style={styles.metricLabel}>5 YILLIK ARTIŞ (ROI)</Text>
           <View style={styles.growthRow}>
             <Ionicons name="arrow-up-circle" size={16} color={PALETTE.greenSuccess} />
-            <Text style={styles.growthText}>+{data.growthPercent}%</Text>
+            <Text style={styles.growthText}>
+              {coin.roi5y ? (coin.roi5y.startsWith('+') ? coin.roi5y : `+${coin.roi5y}`) : `+${data.growthPercent}%`}
+            </Text>
           </View>
           <Text style={styles.metricSub}>2021 – 2025 Dönemi</Text>
         </View>
 
         <View style={styles.metricCard}>
           <Text style={styles.metricLabel}>ORT. ÇEKİÇ FİYATI</Text>
-          <Text style={styles.metricValue}>${data.averagePrice.toLocaleString()}</Text>
+          <Text style={styles.metricValue}>
+            ${(coin.avgHammerPrice || data.averagePrice).toLocaleString()}
+          </Text>
           <Text style={styles.metricSub}>Son 5 Yıldaki Müzayedeler</Text>
         </View>
 
@@ -236,7 +240,7 @@ export const AuctionValueIndex: React.FC<AuctionValueIndexProps> = ({ coin }) =>
           <Text style={styles.metricLabel}>LİKİDİTE DERECESİ</Text>
           <View style={styles.liquidityRow}>
             <Ionicons name="star" size={13} color={PALETTE.goldBright} />
-            <Text style={styles.liquidityValue}>A+ Üstün</Text>
+            <Text style={styles.liquidityValue}>{coin.liquidityGrade || 'A+ Üstün'}</Text>
           </View>
           <Text style={styles.metricSub}>Yüksek Alıcı Talebi</Text>
         </View>

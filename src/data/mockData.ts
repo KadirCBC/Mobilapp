@@ -18,6 +18,12 @@ export interface CoinItem {
   condition?: string;
   numericPrice?: number;
   isScanned?: boolean;
+  historicalContext?: string;
+  roi5y?: string;
+  liquidityGrade?: string;
+  avgHammerPrice?: number;
+  referenceCodes?: Record<string, string>;
+  academicSource?: string;
 }
 
 // Canlı taranan veya harici galeriden yüklenen tüm özel sikkelerin kayıt defteri

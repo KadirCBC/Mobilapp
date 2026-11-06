@@ -1,5 +1,6 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
+  ActivityIndicator,
   Animated,
   Dimensions,
   Modal,
@@ -20,8 +21,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { BorderRadius, Colors, MaxContentWidth, Spacing } from '@/constants/theme';
 import { AuctionValueIndex } from '@/components/AuctionValueIndex';
 import { NumismaticLiteratureCard } from '@/components/NumismaticLiteratureCard';
-import { getCoinById, MOCK_COINS } from '@/data/mockData';
+import { CoinItem, getCoinById, MOCK_COINS } from '@/data/mockData';
 import { useTheme } from '@/hooks/use-theme';
+import { api } from '@/services/api';
 
 const ANDROID_TOP_SPACING = (RNStatusBar.currentHeight ?? 24) + 6;
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -49,8 +51,41 @@ export default function CoinDetailScreen() {
   const flipAnim = useRef(new Animated.Value(0)).current;
   const isFlipping = useRef(false);
 
-  // Sikkeyi id'ye göre bul (Dinamik taranan veya arşivdeki sikke)
-  const coin = id ? getCoinById(id) : undefined;
+  // Sikkeyi id'ye göre bul (Önce yerel önbellek/mock arşiv, ardından canlı REST API)
+  const [coin, setCoin] = useState<CoinItem | undefined>(() => (id ? getCoinById(id) : undefined));
+  const [isLoading, setIsLoading] = useState<boolean>(!coin);
+
+  useEffect(() => {
+    let isMounted = true;
+    if (!id) {
+      setIsLoading(false);
+      return;
+    }
+
+    const localCoin = getCoinById(id);
+    if (localCoin) {
+      setCoin(localCoin);
+      setIsLoading(false);
+    }
+
+    // Canlı Laravel / cPanel API'den tekil sikke detayı çek
+    api.coins.get(id)
+      .then((serverCoin) => {
+        if (isMounted && serverCoin) {
+          setCoin(serverCoin);
+        }
+      })
+      .catch((err) => {
+        console.warn('[CoinDetail] API Hatası:', err);
+      })
+      .finally(() => {
+        if (isMounted) setIsLoading(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [id]);
 
   const handleShare = async () => {
     if (!coin) return;
@@ -99,6 +134,18 @@ export default function CoinDetailScreen() {
   const handleCoinTap = () => {
     flipToFace(activeFace === 'obverse' ? 'reverse' : 'obverse');
   };
+
+  if (isLoading && !coin) {
+    return (
+      <View style={[styles.screen, { backgroundColor: colors.background, justifyContent: 'center', alignItems: 'center' }]}>
+        <StatusBar style="dark" />
+        <ActivityIndicator size="large" color={colors.primary} />
+        <Text style={{ marginTop: Spacing.md, color: colors.textSecondary, fontSize: 14, fontWeight: '500' }}>
+          Eser Detayları Yükleniyor...
+        </Text>
+      </View>
+    );
+  }
 
   if (!coin) {
     return (
@@ -550,7 +597,7 @@ export default function CoinDetailScreen() {
                 </Text>
               </View>
               <Text style={[styles.descBody, styles.historyBody, { color: colors.textPrimary }]}>
-                {coin.description}
+                {coin.historicalContext || coin.description}
               </Text>
             </View>
           </View>

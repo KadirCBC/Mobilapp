@@ -230,6 +230,57 @@ export function getCoinLiteratureReference(coin: CoinItem): NumismaticLiterature
     return SPECIFIC_COIN_REFERENCES[coin.id];
   }
 
+  // Dinamik Backend / Gemini Referans Kodları
+  if (coin.referenceCodes && Object.keys(coin.referenceCodes).length > 0) {
+    const keys = Object.keys(coin.referenceCodes);
+    const primaryRef = keys.map((k) => `${k} ${coin.referenceCodes![k]}`).join(' • ');
+    const codeItems: ReferenceCodeItem[] = keys.map((k) => {
+      let catalogKey: ReferenceCodeItem['catalogKey'] = 'RIC';
+      const upperK = k.toUpperCase();
+      if (upperK.includes('RIC')) catalogKey = 'RIC';
+      else if (upperK.includes('BMC')) catalogKey = 'BMC';
+      else if (upperK.includes('SEAR') || upperK.includes('RCV')) catalogKey = 'SEAR';
+      else if (upperK.includes('RPC')) catalogKey = 'RPC';
+      else if (upperK.includes('SNG')) catalogKey = 'SNG';
+      else if (upperK.includes('PRICE')) catalogKey = 'PRICE';
+      else if (upperK.includes('CRAWFORD')) catalogKey = 'CRAWFORD';
+      else if (upperK.includes('DAMALI')) catalogKey = 'DAMALI';
+
+      const val = coin.referenceCodes![k];
+      return {
+        catalogKey,
+        code: `${k} ${val}`.trim(),
+        catalogName:
+          catalogKey === 'RIC'
+            ? 'Roman Imperial Coinage'
+            : catalogKey === 'BMC'
+            ? 'British Museum Catalog'
+            : catalogKey === 'RPC'
+            ? 'Roman Provincial Coinage'
+            : `${k} Kataloğu`,
+        detail: `Nümizmatik Tipoloji ve Literatür Kaydı: ${val}`,
+      };
+    });
+
+    return {
+      primaryReference: primaryRef,
+      referenceCodes: codeItems,
+      citation: {
+        bookTitle: coin.academicSource || 'The Roman Imperial Coinage (RIC): Standard Reference for Roman Coinage',
+        authors: 'Harold Mattingly, Edward A. Sydenham, C.H.V. Sutherland',
+        publisher: 'Spink & Son Ltd., London',
+        publicationYear: '1923–1994 (Rev. 2007)',
+        isbnOrDoi: 'ISBN 978-1902040653',
+        volumeInfo: 'Standart Nümizmatik Literatür & Akademik Korpus',
+        searchQuery: `${coin.ruler} ${primaryRef} coin`,
+        ocreUrl: 'https://numismatics.org/ocre/',
+        worldCatUrl: 'https://www.worldcat.org/title/875369',
+      },
+      apaCitation: `${coin.academicSource || 'The Roman Imperial Coinage (RIC)'} (Ref: ${primaryRef}).`,
+      concordanceNote: `${coin.title} için nümizmatik külliyat ve uluslararası müze veri tabanlarında tescilli tipoloji kaydı.`,
+    };
+  }
+
   const civLower = coin.civilization.toLowerCase();
   const rulerLower = coin.ruler.toLowerCase();
   const titleLower = coin.title.toLowerCase();

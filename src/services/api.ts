@@ -52,12 +52,19 @@ export interface BackendCoin {
   condition_grade?: string;
   avers_image?: string | null;
   revers_image?: string | null;
+  avers_image_url?: string | null;
+  revers_image_url?: string | null;
   avers_thumb_url?: string | null;
   avers_medium_url?: string | null;
   revers_thumb_url?: string | null;
   revers_medium_url?: string | null;
   avers_description?: string | null;
   revers_description?: string | null;
+  historical_context?: string | null;
+  roi_5y?: string | null;
+  liquidity_grade?: string | null;
+  avg_hammer_price?: number | string | null;
+  academic_source?: string | null;
   reference_codes?: Record<string, string> | null;
   estimated_value_min?: number | string | null;
   estimated_value_max?: number | string | null;
@@ -103,6 +110,18 @@ export function resolveImageUrl(path?: string | null): string {
   return `${API_HOST}${storagePath}`;
 }
 
+export function decodeHtmlEntities(str?: string | null): string {
+  if (!str) return '';
+  return str
+    .replace(/&#198;/g, 'Æ')
+    .replace(/&#230;/g, 'æ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'");
+}
+
 /**
  * Backend'den gelen sikke verisini Expo mobil UI'ın beklediği CoinItem arayüzüne dönüştürür.
  */
@@ -110,8 +129,8 @@ export function mapBackendCoinToCoinItem(b: BackendCoin): CoinItem {
   const civName = typeof b.civilization === 'object' && b.civilization !== null ? b.civilization.name : (b.civilization as string) || 'Bilinmiyor';
   const mintName = typeof b.mint === 'object' && b.mint !== null ? b.mint.name : (b.mint as string) || '';
 
-  const rawObverse = b.avers_thumb_url || b.avers_medium_url || b.avers_image;
-  const rawReverse = b.revers_thumb_url || b.revers_medium_url || b.revers_image;
+  const rawObverse = b.avers_thumb_url || b.avers_medium_url || b.avers_image || b.avers_image_url;
+  const rawReverse = b.revers_thumb_url || b.revers_medium_url || b.revers_image || b.revers_image_url;
 
   const obverse = resolveImageUrl(rawObverse);
   const reverse = rawReverse ? resolveImageUrl(rawReverse) : obverse;
@@ -123,22 +142,35 @@ export function mapBackendCoinToCoinItem(b: BackendCoin): CoinItem {
     numericPrice = typeof b.estimated_value_min === 'number' ? b.estimated_value_min : parseFloat(String(b.estimated_value_min));
   }
 
+  const cleanTitle = decodeHtmlEntities(b.title);
+  const cleanRuler = decodeHtmlEntities(b.ruler || '');
+  const cleanAvers = decodeHtmlEntities(b.avers_description || '');
+  const cleanRevers = decodeHtmlEntities(b.revers_description || '');
+  const cleanHist = decodeHtmlEntities(b.historical_context || '');
+  const cleanAcademic = decodeHtmlEntities(b.academic_source || '');
+
   return {
     id: String(b.id),
-    title: b.title,
+    title: cleanTitle,
     civilization: civName,
-    ruler: b.ruler || '',
-    period: b.formatted_period || (b.year_start ? `${b.year_start}` : ''),
+    ruler: cleanRuler,
+    period: b.formatted_period || (b.year_start ? (b.year_start < 0 ? `M.Ö. ${Math.abs(b.year_start)}` : `M.S. ${b.year_start}`) : ''),
     material: b.metal_type,
     weight: b.weight_grams ? `${b.weight_grams} g` : '',
     diameter: b.diameter_mm ? `${b.diameter_mm} mm` : '',
     obverseImage: obverse,
     reverseImage: reverse,
-    obverseDesc: b.avers_description || '',
-    reverseDesc: b.revers_description || '',
+    obverseDesc: cleanAvers,
+    reverseDesc: cleanRevers,
     rarity: b.rarity_code || 'C',
     estimatedValue: b.formatted_value_range || (numericPrice > 0 ? `$${numericPrice}` : ''),
-    description: b.avers_description ? `${b.avers_description} ${b.revers_description || ''}` : b.title,
+    description: cleanHist || (cleanAvers ? `${cleanAvers} ${cleanRevers}` : cleanTitle),
+    historicalContext: cleanHist,
+    roi5y: b.roi_5y || '+49%',
+    liquidityGrade: b.liquidity_grade || 'A+ Üstün',
+    avgHammerPrice: typeof b.avg_hammer_price === 'number' ? b.avg_hammer_price : (b.avg_hammer_price ? parseFloat(String(b.avg_hammer_price)) : undefined),
+    referenceCodes: b.reference_codes || undefined,
+    academicSource: cleanAcademic || undefined,
     mint: mintName,
     condition: b.condition_grade || 'VF',
     numericPrice: numericPrice,
@@ -231,7 +263,7 @@ export const api = {
             current_page: params.page || 1,
             last_page: 1,
             per_page: params.per_page || 20,
-            total: coinItems.length,
+            total: (res && typeof res.total === 'number') ? res.total : coinItems.length,
           },
         };
       } catch {
