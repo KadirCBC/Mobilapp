@@ -1,22 +1,22 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import {
-  ActivityIndicator,
-  AppState,
-  AppStateStatus,
-  FlatList,
-  Platform,
-  ScrollView,
-  StatusBar as RNStatusBar,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { Image } from 'expo-image';
-import { Ionicons } from '@expo/vector-icons';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import {
+    ActivityIndicator,
+    AppState,
+    AppStateStatus,
+    FlatList,
+    Platform,
+    StatusBar as RNStatusBar,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
+} from 'react-native';
 
 import { CoinCard } from '@/components/CoinCard';
 import { FilterModal } from '@/components/FilterModal';
@@ -24,12 +24,12 @@ import { MainMenuModal } from '@/components/MainMenuModal';
 import { BorderRadius, BottomTabInset, Colors, MaxContentWidth, Spacing } from '@/constants/theme';
 import { CATEGORIES } from '@/data/categories';
 import {
-  CIVILIZATIONS,
-  DEFAULT_FILTER_STATE,
-  FilterState,
-  METALS,
-  MINTS_AND_REGIONS,
-  createDefaultFilterState,
+    CIVILIZATIONS,
+    DEFAULT_FILTER_STATE,
+    FilterState,
+    METALS,
+    MINTS_AND_REGIONS,
+    createDefaultFilterState,
 } from '@/data/filterOptions';
 import { CoinItem, MOCK_COINS } from '@/data/mockData';
 import { useTheme } from '@/hooks/use-theme';
@@ -89,20 +89,21 @@ export default function HomeScreen() {
   const [filters, setFilters] = useState<FilterState>(DEFAULT_FILTER_STATE);
 
   // Canlı Laravel / MySQL API Sayfalama ve Durum Yönetimi
-  const [coins, setCoins] = useState<CoinItem[]>([]);
+  // Uygulama açılır açılmaz 0 ms gecikmeyle eserlerin anında görünmesi için ilk önbellek
+  const [coins, setCoins] = useState<CoinItem[]>(() => MOCK_COINS.slice(0, 15));
   const [page, setPage] = useState<number>(1);
   const [lastPage, setLastPage] = useState<number>(1);
-  const [totalServerCount, setTotalServerCount] = useState<number>(0);
+  const [totalServerCount, setTotalServerCount] = useState<number>(() => MOCK_COINS.length);
   const [hasLoadedFromServer, setHasLoadedFromServer] = useState<boolean>(false);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
   const [isLoadingMore, setIsLoadingMore] = useState<boolean>(false);
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
 
   /**
-   * GET /api/v1/coins uç noktasından filtreli ve sayfalı sikke listesini çeker.
+   * GET /api/v1/coins uç noktasından filtreli ve sayfalama destekli sikke listesini çeker.
    */
   const fetchCoins = async (targetPage = 1, isRefresh = false) => {
-    if (targetPage === 1 && !isRefresh) {
+    if (targetPage === 1 && !isRefresh && coins.length === 0) {
       setIsLoading(true);
     } else if (targetPage > 1) {
       setIsLoadingMore(true);
@@ -120,7 +121,7 @@ export default function HomeScreen() {
 
       const res = await api.coins.list({
         page: targetPage,
-        per_page: 100,
+        per_page: 24,
         q: searchQuery.trim() || undefined,
         metals: metalsParam,
         civilizations: civsParam.length > 0 ? civsParam : undefined,

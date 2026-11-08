@@ -12,7 +12,8 @@ function getApiHost(): string {
   if (debuggerHost) {
     return `http://${debuggerHost}:8000`;
   }
-  return Platform.OS === 'android' ? 'http://10.0.2.2:8000' : 'http://localhost:8000';
+  // Standalone APK / Bağımsız kurulumda yerel Wi-Fi ana makine IP'si
+  return 'http://192.168.1.101:8000';
 }
 
 export const API_HOST = getApiHost();

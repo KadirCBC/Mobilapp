@@ -2809,7 +2809,40 @@ if ($uri === '/api/v1/coins' && $method === 'GET') {
         $params['ruler'] = "%{$ruler}%";
     }
 
-    $sql .= " ORDER BY c.id DESC";
+    // Yüksek Performanslı Sayfalama (Pagination)
+    $page = (int)($_GET['page'] ?? 1);
+    if ($page < 1) $page = 1;
+    $perPage = (int)($_GET['per_page'] ?? 24);
+    if ($perPage < 1) $perPage = 24;
+    if ($perPage > 100) $perPage = 100;
+    $offset = ($page - 1) * $perPage;
+
+    // Toplam kayıt sayısı
+    $countSql = "SELECT COUNT(*) FROM coins c WHERE c.is_published = 1";
+    $countParams = [];
+    if (!empty($search)) {
+        $countSql .= " AND (c.title LIKE :s1 OR c.ruler LIKE :s2 OR c.standard_name LIKE :s3)";
+        $countParams['s1'] = "%{$search}%";
+        $countParams['s2'] = "%{$search}%";
+        $countParams['s3'] = "%{$search}%";
+    }
+    if (!empty($metal)) {
+        $countSql .= " AND c.metal_type LIKE :metal";
+        $countParams['metal'] = "%{$metal}%";
+    }
+    if ($civId > 0) {
+        $countSql .= " AND c.civilization_id = :civ";
+        $countParams['civ'] = $civId;
+    }
+    if (!empty($ruler)) {
+        $countSql .= " AND c.ruler LIKE :ruler";
+        $countParams['ruler'] = "%{$ruler}%";
+    }
+    $cStmt = $pdo->prepare($countSql);
+    $cStmt->execute($countParams);
+    $totalCount = (int)$cStmt->fetchColumn();
+
+    $sql .= " ORDER BY c.id DESC LIMIT {$perPage} OFFSET {$offset}";
     $stmt = $pdo->prepare($sql);
     $stmt->execute($params);
     $rawCoins = $stmt->fetchAll();
@@ -2819,15 +2852,17 @@ if ($uri === '/api/v1/coins' && $method === 'GET') {
         $coins[] = formatCoinForApi($rc);
     }
 
-    $totalCount = count($coins);
+    $lastPage = $perPage > 0 ? (int)ceil($totalCount / $perPage) : 1;
+    if ($lastPage < 1) $lastPage = 1;
+
     jsonResponse([
         'success' => true,
         'data' => $coins,
         'total' => $totalCount,
         'meta' => [
-            'current_page' => 1,
-            'last_page' => 1,
-            'per_page' => $totalCount,
+            'current_page' => $page,
+            'last_page' => $lastPage,
+            'per_page' => $perPage,
             'total' => $totalCount,
         ]
     ]);
