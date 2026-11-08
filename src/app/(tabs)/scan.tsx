@@ -205,6 +205,8 @@ export default function ScanScreen() {
   // Gemini AI ve MySQL Kurumsal Arşiv Eşleşme Durumları
   const [geminiAnalysis, setGeminiAnalysis] = useState<GeminiScanResponse['ai_analysis'] | null>(null);
   const [matchedArchiveCoin, setMatchedArchiveCoin] = useState<BackendCoin | null>(null);
+  const [academicCard, setAcademicCard] = useState<GeminiScanResponse['academic_card'] | null>(null);
+  const [matchReason, setMatchReason] = useState<string>('');
 
   // Uluslararası Nümizmatik Derecelendirme (NGC Ancients / PCGS) Metrikleri
   const conditionGradeText = useMemo(() => {
@@ -398,12 +400,25 @@ export default function ScanScreen() {
       clearTimeout(stepTimer1);
       clearTimeout(stepTimer2);
 
+      if (scanResult && scanResult.is_coin === false) {
+        setIsScanningActive(false);
+        setAnalysisStep('Görsel Doğrulama Başarısız');
+        alert(scanResult.message || 'Görselde sikke tespit edilemedi veya fotoğraf kalitesi yetersiz.');
+        return;
+      }
+
       setAnalysisProgress(100);
-      setAnalysisStep('Nümizmatik Arşiv Veritabanında Doğrulandı!');
+      setAnalysisStep(
+        scanResult?.match_found
+          ? 'Nümizmatik Arşiv Veritabanında Eşleşti!'
+          : 'Arşiv Dışı Yeni Keşif: Akademik Kimlik Kartı Oluşturuldu!'
+      );
 
       if (scanResult && scanResult.ai_analysis) {
         setGeminiAnalysis(scanResult.ai_analysis);
-        setMatchScore(scanResult.ai_analysis.confidence_score || 98.4);
+        setMatchScore(scanResult.ai_analysis.confidence_score || (scanResult.confidence_score ?? 92));
+        setAcademicCard(scanResult.academic_card || null);
+        setMatchReason(scanResult.match_reason || scanResult.step2_reason || '');
 
         let finalCoin: CoinItem;
 
@@ -434,7 +449,7 @@ export default function ScanScreen() {
             condition: ai.estimated_condition || 'VF (Very Fine)',
             obverseDesc: ai.avers_description || 'Ön yüz tasviri',
             reverseDesc: ai.revers_description || 'Arka yüz tasviri',
-            description: `${ai.identified_title} — ${ai.authenticity_notes || 'Google Gemini 1.5 Nümizmatik analiz raporu'}`,
+            description: `${ai.identified_title} — ${ai.authenticity_notes || 'Google Gemini Nümizmatik analiz raporu'}`,
             obverseImage: obverseUri,
             reverseImage: finalReverseUri,
             isScanned: true,
@@ -1262,11 +1277,70 @@ export default function ScanScreen() {
                     </TouchableOpacity>
                   </View>
                 ) : (
-                  <View style={styles.unmatchedArchiveBox}>
-                    <Ionicons name="information-circle-outline" size={16} color="#64748B" />
-                    <Text style={styles.unmatchedArchiveText}>
-                      Bu eser henüz yerel müze envanterine girilmemiş. Gemini AI verileriyle yeni nümizmatik envanter kaydı oluşturabilirsiniz.
-                    </Text>
+                  <View>
+                    {academicCard ? (
+                      <View style={styles.academicCardBox}>
+                        <View style={styles.academicTitleRow}>
+                          <Text style={styles.academicTitle} numberOfLines={1}>
+                            🏛️ {academicCard.kimlik?.olasi_baslik || 'Koleksiyon Dışı Yeni Keşif'}
+                          </Text>
+                          <Text style={styles.academicBadge}>
+                            {academicCard.guvenilirlik?.skor || '%75'} Güven
+                          </Text>
+                        </View>
+
+                        {matchReason ? (
+                          <View style={styles.academicReasonBox}>
+                            <Text style={styles.academicReasonText}>
+                              ⚠️ Arşiv Kıyaslaması: {matchReason}
+                            </Text>
+                          </View>
+                        ) : null}
+
+                        {academicCard.yuzey_detaylari?.ikonografi ? (
+                          <View>
+                            <Text style={styles.academicSectionLabel}>İkonografi & Tasvir</Text>
+                            <Text style={styles.academicText}>{academicCard.yuzey_detaylari.ikonografi}</Text>
+                          </View>
+                        ) : null}
+
+                        {academicCard.yuzey_detaylari?.okunan_yazilar ? (
+                          <View style={{ marginTop: 4 }}>
+                            <Text style={styles.academicSectionLabel}>Okunan Lejant & Yazıt</Text>
+                            <Text style={styles.academicText}>
+                              {academicCard.yuzey_detaylari.okunan_yazilar}
+                              {academicCard.yuzey_detaylari.yazit_anlami ? ` (${academicCard.yuzey_detaylari.yazit_anlami})` : ''}
+                            </Text>
+                          </View>
+                        ) : null}
+
+                        {academicCard.guvenilirlik?.belirsizlik_sebebi ? (
+                          <View style={{ marginTop: 4 }}>
+                            <Text style={styles.academicSectionLabel}>Nümizmatik Değerlendirme</Text>
+                            <Text style={[styles.academicText, { color: '#64748B', fontStyle: 'italic' }]}>
+                              {academicCard.guvenilirlik.belirsizlik_sebebi}
+                            </Text>
+                          </View>
+                        ) : null}
+
+                        {academicCard.katalog_ekleme_onerisi?.onerilen_etiketler ? (
+                          <View style={styles.academicTagsRow}>
+                            {academicCard.katalog_ekleme_onerisi.onerilen_etiketler.map((t, i) => (
+                              <View key={i} style={styles.academicTagItem}>
+                                <Text style={styles.academicTagText}>#{t}</Text>
+                              </View>
+                            ))}
+                          </View>
+                        ) : null}
+                      </View>
+                    ) : (
+                      <View style={styles.unmatchedArchiveBox}>
+                        <Ionicons name="information-circle-outline" size={16} color="#64748B" />
+                        <Text style={styles.unmatchedArchiveText}>
+                          Bu eser henüz yerel müze envanterine girilmemiş. Gemini AI verileriyle yeni nümizmatik envanter kaydı oluşturabilirsiniz.
+                        </Text>
+                      </View>
+                    )}
                   </View>
                 )}
               </View>
@@ -2865,5 +2939,78 @@ const styles = StyleSheet.create({
     color: '#64748B',
     flex: 1,
     lineHeight: 15,
+  },
+  academicCardBox: {
+    backgroundColor: '#FBF8F2',
+    padding: 12,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: 'rgba(158, 123, 59, 0.35)',
+    marginTop: 6,
+  },
+  academicTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 6,
+    gap: 8,
+  },
+  academicTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#9E7B3B',
+    flex: 1,
+  },
+  academicBadge: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#92400E',
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    overflow: 'hidden',
+  },
+  academicReasonBox: {
+    backgroundColor: '#F1F5F9',
+    padding: 8,
+    borderRadius: 6,
+    marginBottom: 8,
+  },
+  academicReasonText: {
+    fontSize: 10.5,
+    color: '#475569',
+    lineHeight: 14,
+  },
+  academicSectionLabel: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#64748B',
+    textTransform: 'uppercase',
+    marginTop: 6,
+    marginBottom: 2,
+    letterSpacing: 0.5,
+  },
+  academicText: {
+    fontSize: 11.5,
+    color: '#1E293B',
+    lineHeight: 16,
+  },
+  academicTagsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 4,
+    marginTop: 8,
+  },
+  academicTagItem: {
+    backgroundColor: 'rgba(158, 123, 59, 0.1)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  academicTagText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#9E7B3B',
   },
 });

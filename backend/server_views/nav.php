@@ -44,6 +44,7 @@ if ($cleanUri === '/admin/coins/create') {
 ?>
 
 <!-- SİKKELOBEDİ PROFESYONEL SİDEBAR & TOPBAR SİSTEMİ -->
+<link rel="icon" type="image/png" href="/images/app-logo.png">
 <style>
     /* CSS Variables & Reset Override */
     :root {
@@ -153,60 +154,70 @@ if ($cleanUri === '/admin/coins/create') {
 
     /* 1. Sidebar Brand Header */
     .sb-header {
-        height: var(--topbar-h);
-        padding: 0 20px;
+        min-height: var(--topbar-h);
+        padding: 12px 20px;
         display: flex;
-        align-items: center;
-        gap: 13px;
+        flex-direction: column;
+        justify-content: center;
+        gap: 5px;
         border-bottom: 1px solid var(--sb-border);
         flex-shrink: 0;
         background: rgba(255, 255, 255, 0.02);
+        transition: all 0.25s ease;
     }
 
-    .sb-logo-badge {
-        width: 40px;
-        height: 40px;
-        border-radius: 10px;
-        background: linear-gradient(135deg, rgba(158, 123, 59, 0.25), rgba(212, 175, 55, 0.15));
-        border: 1.5px solid rgba(212, 175, 55, 0.4);
+    .sb-brand-container {
         display: flex;
         align-items: center;
-        justify-content: center;
-        flex-shrink: 0;
-        box-shadow: 0 0 15px rgba(212, 175, 55, 0.15);
     }
 
-    .sb-brand-info {
-        display: flex;
-        flex-direction: column;
-        overflow: hidden;
-        white-space: nowrap;
-        transition: opacity 0.2s;
-    }
-    body.sb-collapsed .sb-brand-info {
-        opacity: 0;
-        pointer-events: none;
+    .sb-brand-logo-full {
+        height: 38px;
+        width: auto;
+        max-width: 200px;
+        object-fit: contain;
+        display: block;
+        filter: brightness(0) invert(1);
+        transition: transform 0.2s ease, opacity 0.2s ease;
     }
 
-    .sb-brand-title {
-        font-family: 'Cinzel', Georgia, serif;
-        font-size: 17px;
-        font-weight: 700;
-        letter-spacing: 0.8px;
-        background: var(--gold-grad);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        line-height: 1.2;
+    .sb-header:hover .sb-brand-logo-full {
+        transform: scale(1.02);
     }
 
-    .sb-brand-sub {
+    .sb-brand-logo-mini {
+        display: none;
+        width: 38px;
+        height: 38px;
+        border-radius: 9px;
+        object-fit: cover;
+        border: 1.5px solid rgba(212, 175, 55, 0.35);
+        box-shadow: 0 0 12px rgba(212, 175, 55, 0.15);
+    }
+
+    .sb-brand-status {
         font-size: 11px;
         color: var(--sb-text-muted);
         letter-spacing: 0.5px;
         display: flex;
         align-items: center;
         gap: 6px;
-        margin-top: 2px;
+        padding-left: 2px;
+        transition: opacity 0.2s;
+    }
+
+    body.sb-collapsed .sb-header {
+        padding: 14px 16px;
+        align-items: center;
+    }
+
+    body.sb-collapsed .sb-brand-logo-full,
+    body.sb-collapsed .sb-brand-status {
+        display: none !important;
+    }
+
+    body.sb-collapsed .sb-brand-logo-mini {
+        display: block;
     }
 
     .live-dot {
@@ -646,22 +657,19 @@ if ($cleanUri === '/admin/coins/create') {
 
 <!-- SOL PROFESYONEL SİDEBAR -->
 <aside class="sb-sidebar" id="sbSidebar">
-    <!-- Brand Başlık -->
-    <div class="sb-header">
-        <div class="sb-logo-badge">
-            <svg width="22" height="22" fill="none" stroke="#ECC97C" stroke-width="2.2" viewBox="0 0 24 24">
-                <circle cx="12" cy="12" r="9.5"></circle>
-                <path d="M14.5 8.5a3 3 0 0 0-5 0v7a3 3 0 0 0 5 0"></path>
-                <line x1="7" y1="12" x2="17" y2="12"></line>
-            </svg>
+    <!-- Brand Başlık: 2. Görseldeki Tam Logo (Amblem + Yazı) -->
+    <a href="/admin/coins" class="sb-header" style="text-decoration: none; color: inherit;">
+        <div class="sb-brand-container">
+            <!-- Normal Geniş Görünüm: Tam Logo (Amblem + Sikkelobedi Yazısı) -->
+            <img src="/images/brand-logo-white.png" alt="Sikkelobedi" class="sb-brand-logo-full" onerror="this.onerror=null; this.src='/images/brand-logo.png';">
+            
+            <!-- Daraltılmış Sidebar İkonu -->
+            <img src="/images/app-logo.png" alt="Sikkelobedi" class="sb-brand-logo-mini">
         </div>
-        <div class="sb-brand-info">
-            <span class="sb-brand-title">SİKKELOBEDİ</span>
-            <span class="sb-brand-sub">
-                <span class="live-dot"></span> XAMPP MySQL • CANLI
-            </span>
+        <div class="sb-brand-status">
+            <span class="live-dot"></span> XAMPP MySQL • CANLI
         </div>
-    </div>
+    </a>
 
     <!-- Menü Elemanları (Açılır Kapanır Accordion Grupları) -->
     <nav class="sb-nav-container">
@@ -846,6 +854,9 @@ if ($cleanUri === '/admin/coins/create') {
 <script>
     // 1. Accordion Açma / Kapama Fonksiyonu
     function toggleAccordion(id) {
+        if (document.body.classList.contains('sb-collapsed')) {
+            toggleSidebarCollapse();
+        }
         const el = document.getElementById(id);
         if (!el) return;
         el.classList.toggle('open');

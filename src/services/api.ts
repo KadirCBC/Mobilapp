@@ -83,6 +83,38 @@ export interface BackendCoin {
 export interface GeminiScanResponse {
   success: boolean;
   scan_id?: number;
+  is_coin?: boolean;
+  step?: number;
+  match_found?: boolean;
+  confidence_score?: number;
+  match_reason?: string;
+  step2_reason?: string;
+  academic_card?: {
+    tespit_tipi?: string;
+    arşiv_durumu?: string;
+    kimlik?: {
+      olasi_baslik?: string;
+      donem?: string;
+      medeniyet_bolge?: string;
+      hukumdar?: string;
+      nominal_birim?: string;
+      materyal?: string;
+    };
+    yuzey_detaylari?: {
+      ikonografi?: string;
+      okunan_yazilar?: string;
+      yazit_anlami?: string;
+    };
+    guvenilirlik?: {
+      skor?: string;
+      guven_seviyesi?: string;
+      belirsizlik_sebebi?: string;
+    };
+    katalog_ekleme_onerisi?: {
+      onerilen_etiketler?: string[];
+      koleksiyona_kaydetmeye_uygun_mu?: boolean;
+    };
+  };
   ai_analysis: {
     identified_title: string;
     civilization: string;
@@ -98,6 +130,7 @@ export interface GeminiScanResponse {
   };
   matched_archive_coin?: BackendCoin | null;
   message?: string;
+  validation?: any;
 }
 
 export interface PaginatedCoinsResult {
