@@ -265,16 +265,21 @@
                                     $reversUrl = !empty($item['revers_image']) 
                                         ? (str_starts_with($item['revers_image'], 'http') ? $item['revers_image'] : ('/storage/' . ltrim($item['revers_image'], '/'))) 
                                         : $placeholderSvg;
+                                    $isSameImage = ($aversUrl === $reversUrl && $aversUrl !== $placeholderSvg);
                                 ?>
-                                <div style="display: flex; gap: 6px;">
-                                    <img src="<?= htmlspecialchars($aversUrl) ?>" 
-                                         style="width: 42px; height: 42px; border-radius: 50%; object-fit: cover; border: 1.5px solid var(--gold-primary);" 
-                                         alt="Avers" 
-                                         onerror="this.onerror=null; this.src='<?= $placeholderSvg ?>';">
-                                    <img src="<?= htmlspecialchars($reversUrl) ?>" 
-                                         style="width: 42px; height: 42px; border-radius: 50%; object-fit: cover; border: 1.5px solid var(--gold-primary);" 
-                                         alt="Revers" 
-                                         onerror="this.onerror=null; this.src='<?= $placeholderSvg ?>';">
+                                <div style="display: flex; gap: 6px;" title="<?= $isSameImage ? 'Çift yüzlü panoramik görsel otomatik ön/arka olarak ayrıştırıldı' : 'Ön ve Arka Yüzler' ?>">
+                                    <div style="width: 42px; height: 42px; border-radius: 50%; overflow: hidden; border: 1.5px solid var(--gold-primary); background: #1a1d20; position: relative;">
+                                        <img src="<?= htmlspecialchars($aversUrl) ?>" 
+                                             style="width: 100%; height: 100%; object-fit: cover; object-position: <?= $isSameImage ? '0% 50%' : 'center' ?>;" 
+                                             alt="Ön Yüz (Avers)" 
+                                             onerror="this.onerror=null; this.src='<?= $placeholderSvg ?>';">
+                                    </div>
+                                    <div style="width: 42px; height: 42px; border-radius: 50%; overflow: hidden; border: 1.5px solid var(--gold-primary); background: #1a1d20; position: relative;">
+                                        <img src="<?= htmlspecialchars($reversUrl) ?>" 
+                                             style="width: 100%; height: 100%; object-fit: cover; object-position: <?= $isSameImage ? '100% 50%' : 'center' ?>;" 
+                                             alt="Arka Yüz (Revers)" 
+                                             onerror="this.onerror=null; this.src='<?= $placeholderSvg ?>';">
+                                    </div>
                                 </div>
                             </td>
                             <td>

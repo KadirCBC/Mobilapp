@@ -31,6 +31,8 @@ const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 // Dairesel sikke boyutu (Mobil genişliğine göre optimum ölçekleme)
 const COIN_DIAMETER = Math.min(SCREEN_WIDTH * 0.62, 240);
 const COMPOSITE_IMG_WIDTH = COIN_DIAMETER * 2.05; // 2:1 panoramik çift yüz görseli için ölçekli genişlik
+const MODAL_COIN_SIZE = Math.min(SCREEN_WIDTH * 0.82, SCREEN_HEIGHT * 0.45);
+const MODAL_COMPOSITE_WIDTH = MODAL_COIN_SIZE * 2.05;
 
 export default function CoinDetailScreen() {
   const router = useRouter();
@@ -314,11 +316,12 @@ export default function CoinDetailScreen() {
                 ]}>
                 <Image
                   source={{ uri: currentImage }}
-                  style={styles.singleCoinImage}
-                  contentFit="cover"
-                  contentPosition={
-                    isComposite ? (activeFace === 'obverse' ? 'left' : 'right') : 'center'
+                  style={
+                    isComposite
+                      ? (activeFace === 'obverse' ? styles.compositeLeft : styles.compositeRight)
+                      : styles.singleCoinImage
                   }
+                  contentFit="cover"
                   transition={150}
                 />
               </Animated.View>
@@ -643,12 +646,27 @@ export default function CoinDetailScreen() {
 
             {/* Modal Görsel Alanı (Tam Ekran) */}
             <View style={styles.modalImageContainer}>
-              <Image
-                source={{ uri: currentImage }}
-                style={styles.modalImage}
-                contentFit="contain"
-                transition={200}
-              />
+              {isComposite ? (
+                <View style={styles.modalCoinCircle}>
+                  <Image
+                    source={{ uri: currentImage }}
+                    style={
+                      activeFace === 'obverse'
+                        ? styles.modalCompositeLeft
+                        : styles.modalCompositeRight
+                    }
+                    contentFit="cover"
+                    transition={200}
+                  />
+                </View>
+              ) : (
+                <Image
+                  source={{ uri: currentImage }}
+                  style={styles.modalImage}
+                  contentFit="contain"
+                  transition={200}
+                />
+              )}
             </View>
 
             {/* Modal Alt Çubuk: Yüz Değiştirici */}
@@ -1147,6 +1165,30 @@ const styles = StyleSheet.create({
   modalImage: {
     width: SCREEN_WIDTH * 0.9,
     height: SCREEN_HEIGHT * 0.55,
+  },
+  modalCoinCircle: {
+    width: MODAL_COIN_SIZE,
+    height: MODAL_COIN_SIZE,
+    borderRadius: MODAL_COIN_SIZE / 2,
+    borderWidth: 3,
+    borderColor: '#D4AF37',
+    overflow: 'hidden',
+    position: 'relative',
+    backgroundColor: '#1E232B',
+  },
+  modalCompositeLeft: {
+    width: MODAL_COMPOSITE_WIDTH,
+    height: MODAL_COIN_SIZE,
+    position: 'absolute',
+    left: 0,
+    top: 0,
+  },
+  modalCompositeRight: {
+    width: MODAL_COMPOSITE_WIDTH,
+    height: MODAL_COIN_SIZE,
+    position: 'absolute',
+    right: 0,
+    top: 0,
   },
   modalFooter: {
     paddingHorizontal: Spacing.lg,

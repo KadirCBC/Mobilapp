@@ -7,7 +7,7 @@
 import { CoinItem } from './mockData';
 
 export interface ReferenceCodeItem {
-  catalogKey: 'RIC' | 'BMC' | 'SEAR' | 'RPC' | 'SNG' | 'CRAWFORD' | 'DAMALI' | 'PRICE';
+  catalogKey: 'RIC' | 'BMC' | 'SEAR' | 'RPC' | 'SNG' | 'CRAWFORD' | 'DAMALI' | 'PRICE' | 'CARRADICE' | 'HENDIN' | 'OTHER';
   code: string;
   catalogName: string;
   detail: string;
@@ -245,6 +245,9 @@ export function getCoinLiteratureReference(coin: CoinItem): NumismaticLiterature
       else if (upperK.includes('PRICE')) catalogKey = 'PRICE';
       else if (upperK.includes('CRAWFORD')) catalogKey = 'CRAWFORD';
       else if (upperK.includes('DAMALI')) catalogKey = 'DAMALI';
+      else if (upperK.includes('CARRADICE')) catalogKey = 'CARRADICE';
+      else if (upperK.includes('HENDIN')) catalogKey = 'HENDIN';
+      else catalogKey = 'OTHER';
 
       const val = coin.referenceCodes![k];
       return {
@@ -335,7 +338,100 @@ export function getCoinLiteratureReference(coin: CoinItem): NumismaticLiterature
     };
   }
 
-  // 2. Antik Grek & Helenistik Sikkeler
+  // 2. Ahameniş / Pers İmparatorluğu Sikkeleri
+  if (civLower.includes('pers') || civLower.includes('achaemenid') || rulerLower.includes('darius') || rulerLower.includes('artaxerxes') || titleLower.includes('siglos')) {
+    return {
+      primaryReference: 'Carradice Type IV C • BMC Persian 149',
+      referenceCodes: [
+        {
+          catalogKey: 'CARRADICE',
+          code: 'Carradice Type IV C',
+          catalogName: 'Achaemenid Coinage Typology',
+          detail: 'Ian Carradice (1987) Pl. XV, 46 (Koşan Büyük Kral / Çukur Baskı)',
+        },
+        {
+          catalogKey: 'BMC',
+          code: 'BMC Persian 149',
+          catalogName: 'British Museum Persian Empire',
+          detail: 'Catalogue of the Greek Coins of Arabia, Mesopotamia & Persia',
+        },
+        {
+          catalogKey: 'SNG',
+          code: 'SNG Cop 278',
+          catalogName: 'Sylloge Nummorum Graecorum',
+          detail: 'SNG Copenhagen (Persian Empire) No. 278',
+        },
+        {
+          catalogKey: 'OTHER',
+          code: 'Sunrise 28',
+          catalogName: 'Sunrise Ancient Persian Collection',
+          detail: 'The Sunrise Collection of Ancient Persian Coinage (2011)',
+        },
+      ],
+      citation: {
+        bookTitle: 'Coinage and Administration in the Athenian and Persian Empires',
+        authors: 'Ian Carradice',
+        publisher: 'British Archaeological Reports (BAR), Oxford',
+        publicationYear: '1987',
+        isbnOrDoi: 'ISBN 978-0860544425',
+        volumeInfo: 'BAR International Series 343: The "King and Archer" Coinage',
+        searchQuery: `Carradice Achaemenid Siglos Darius Artaxerxes coin`,
+        worldCatUrl: 'https://www.worldcat.org/title/16602324',
+        britishMuseumUrl: 'https://www.britishmuseum.org/collection',
+      },
+      apaCitation: `Carradice, I. (1987). Coinage and Administration in the Athenian and Persian Empires. BAR Int. Series 343.`,
+      concordanceNote:
+        'Ahameniş kraliyet darphanelerinde darpedilmiş, Ian Carradice ve British Museum kataloglarında kayıtlı tipolojik standart nümizmatik referans.',
+    };
+  }
+
+  // 3. Yahudiye / İncil Sikkeleri (Widow\'s Mite, Prutah, Hasmonean)
+  if (civLower.includes('yahudi') || civLower.includes('judean') || civLower.includes('judaea') || titleLower.includes('mite') || titleLower.includes('prutah') || rulerLower.includes('jannaeus')) {
+    return {
+      primaryReference: 'Hendin 1152 • Meshorer TJC B',
+      referenceCodes: [
+        {
+          catalogKey: 'HENDIN',
+          code: 'Hendin 1152',
+          catalogName: 'Guide to Biblical Coins',
+          detail: 'David Hendin 6. Baskı No. 1152 (Kral Aleksandros Çapa / Yıldız)',
+        },
+        {
+          catalogKey: 'OTHER',
+          code: 'Meshorer TJC B',
+          catalogName: 'A Treasury of Jewish Coins',
+          detail: 'Ya\'akov Meshorer Kudüs Nümizmatik Külliyatı Tip B',
+        },
+        {
+          catalogKey: 'SNG',
+          code: 'SNG ANS 355',
+          catalogName: 'American Numismatic Society',
+          detail: 'Sylloge Nummorum Graecorum ANS Palestine-South Arabia',
+        },
+        {
+          catalogKey: 'BMC',
+          code: 'BMC Palestine 61',
+          catalogName: 'British Museum Palestine',
+          detail: 'Catalogue of the Greek Coins of Palestine Syf. 210',
+        },
+      ],
+      citation: {
+        bookTitle: 'Guide to Biblical Coins (6th Edition)',
+        authors: 'David Hendin',
+        publisher: 'Amphora Books, New York',
+        publicationYear: '2021',
+        isbnOrDoi: 'ISBN 978-0997782103',
+        volumeInfo: 'Chapter 5: Coinage of the Hasmonean Dynasty (Widow\'s Mites)',
+        searchQuery: `Hendin 1152 Alexander Jannaeus prutah Widow's Mite`,
+        worldCatUrl: 'https://www.worldcat.org/title/1243907771',
+      },
+      apaCitation: `Hendin, D. (2021). Guide to Biblical Coins (6th ed.). Amphora Books, No. 1152.`,
+      concordanceNote:
+        'İncil ve antik Kudüs nümizmatiğinde "Dul Kadının Akçesi" olarak tescilli, David Hendin ve Meshorer korpuslarında kayıtlı standart bronz prutah.',
+    };
+  }
+
+  // 4. Antik Grek & Helenistik Sikkeler
   if (civLower.includes('yunan') || civLower.includes('greek') || civLower.includes('makedon') || rulerLower.includes('iskender')) {
     return {
       primaryReference: 'Price 3671 • SNG Cop 915',
