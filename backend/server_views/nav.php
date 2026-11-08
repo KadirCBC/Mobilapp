@@ -25,6 +25,9 @@ $breadcrumbPage = 'Sikke Kataloğu';
 if ($cleanUri === '/admin/coins/create') {
     $breadcrumbSection = 'Sikke Yönetimi';
     $breadcrumbPage = 'Yeni Eser Ekle';
+} elseif ($cleanUri === '/admin/coins/bulk') {
+    $breadcrumbSection = 'Sikke Yönetimi';
+    $breadcrumbPage = 'Toplu Sikke İçe Aktar';
 } elseif (str_starts_with($cleanUri, '/admin/coins/edit')) {
     $breadcrumbSection = 'Sikke Yönetimi';
     $breadcrumbPage = 'Eser Düzenle';
@@ -694,6 +697,9 @@ if ($cleanUri === '/admin/coins/create') {
                 <a href="/admin/coins/create" class="sb-sub-link <?= ($cleanUri === '/admin/coins/create') ? 'active' : '' ?>">
                     <span class="sub-bullet"></span> ➕ Yeni Sikke Ekle
                 </a>
+                <a href="/admin/coins/bulk" class="sb-sub-link <?= ($cleanUri === '/admin/coins/bulk') ? 'active' : '' ?>">
+                    <span class="sub-bullet"></span> 📦 Toplu Sikke İçe Aktar
+                </a>
                 <a href="/admin/coins?metal=Altın" class="sb-sub-link <?= (($_GET['metal'] ?? '') === 'Altın') ? 'active' : '' ?>">
                     <span class="sub-bullet gold"></span> 🟡 Altın (AV) Sikkeler
                 </a>
@@ -742,6 +748,9 @@ if ($cleanUri === '/admin/coins/create') {
                 </a>
                 <a href="/admin/coins/create" class="sb-sub-link">
                     <span class="sub-bullet"></span> ⚡ Dış Bağlantı Ayrıştırıcı
+                </a>
+                <a href="/admin/coins/bulk" class="sb-sub-link <?= ($cleanUri === '/admin/coins/bulk') ? 'active' : '' ?>">
+                    <span class="sub-bullet"></span> 📦 Toplu AI İçe Aktar
                 </a>
             </div>
         </div>

@@ -59,16 +59,18 @@ const PALETTE = {
 };
 
 export function getCoinAuctionData(coin: CoinItem) {
+  const parsedPrice = parseInt(String(coin.estimatedValue || '').replace(/[^0-9]/g, ''), 10);
   const basePrice =
-    coin.numericPrice ??
-    parseInt(coin.estimatedValue.replace(/[^0-9]/g, '') || '1200', 10);
+    coin.numericPrice && coin.numericPrice > 0
+      ? coin.numericPrice
+      : (parsedPrice && parsedPrice > 0 ? parsedPrice : 240);
 
   // Son 5 Yıl (2021-2025) gerçekçi nümizmatik getiri serisi
-  const p2021 = Math.round(basePrice * 0.67);
-  const p2022 = Math.round(basePrice * 0.75);
-  const p2023 = Math.round(basePrice * 0.85);
-  const p2024 = Math.round(basePrice * 0.94);
-  const p2025 = basePrice;
+  const p2021 = Math.max(Math.round(basePrice * 0.67), 50);
+  const p2022 = Math.max(Math.round(basePrice * 0.75), 60);
+  const p2023 = Math.max(Math.round(basePrice * 0.85), 75);
+  const p2024 = Math.max(Math.round(basePrice * 0.94), 90);
+  const p2025 = Math.max(basePrice, 100);
 
   const yearPoints: YearPricePoint[] = [
     { year: 2021, price: p2021, salesCount: 6 },
@@ -159,33 +161,38 @@ export const AuctionValueIndex: React.FC<AuctionValueIndexProps> = ({ coin }) =>
   const innerWidth = chartWidth - paddingLeft - paddingRight;
   const innerHeight = chartHeight - paddingTop - paddingBottom;
 
-  // Min ve Max Fiyat
+  // Min ve Max Fiyat (Sıfıra bölme ve NaN engelleme)
   const prices = data.yearPoints.map((p) => p.price);
-  const minPrice = Math.floor(Math.min(...prices) * 0.9);
-  const maxPrice = Math.ceil(Math.max(...prices) * 1.08);
+  const rawMin = Math.min(...prices);
+  const rawMax = Math.max(...prices);
+  const minPrice = Math.floor(rawMin * 0.9);
+  const maxPrice = Math.max(Math.ceil(rawMax * 1.08), minPrice + 20);
+  const priceRange = Math.max(maxPrice - minPrice, 10);
 
   // Nokta Koordinatları Hesabı
   const points = data.yearPoints.map((p, index) => {
-    const x = paddingLeft + (index / (data.yearPoints.length - 1)) * innerWidth;
-    const y =
-      paddingTop +
-      innerHeight -
-      ((p.price - minPrice) / (maxPrice - minPrice)) * innerHeight;
-    return { ...p, x, y };
+    const x = Math.round(paddingLeft + (index / Math.max(data.yearPoints.length - 1, 1)) * innerWidth);
+    const rawRatio = (p.price - minPrice) / priceRange;
+    const safeRatio = isNaN(rawRatio) ? 0.5 : Math.max(0, Math.min(1, rawRatio));
+    const y = Math.round(paddingTop + innerHeight - safeRatio * innerHeight);
+    return { ...p, x: isNaN(x) ? paddingLeft : x, y: isNaN(y) ? (paddingTop + innerHeight / 2) : y };
   });
 
   // SVG Çizgi Yolu ve Alan Doldurma Yolu
   const linePath = useMemo(() => {
     if (points.length === 0) return '';
     return points.reduce((acc, curr, index) => {
-      if (index === 0) return `M ${curr.x} ${curr.y}`;
-      // Pürüzsüz kıvrım için kontrol noktaları
+      const curX = isNaN(curr.x) ? 0 : curr.x;
+      const curY = isNaN(curr.y) ? 0 : curr.y;
+      if (index === 0) return `M ${curX} ${curY}`;
       const prev = points[index - 1];
-      const cx1 = prev.x + (curr.x - prev.x) / 2;
-      const cy1 = prev.y;
-      const cx2 = prev.x + (curr.x - prev.x) / 2;
-      const cy2 = curr.y;
-      return `${acc} C ${cx1} ${cy1}, ${cx2} ${cy2}, ${curr.x} ${curr.y}`;
+      const prevX = isNaN(prev.x) ? 0 : prev.x;
+      const prevY = isNaN(prev.y) ? 0 : prev.y;
+      const cx1 = Math.round(prevX + (curX - prevX) / 2);
+      const cy1 = prevY;
+      const cx2 = Math.round(prevX + (curX - prevX) / 2);
+      const cy2 = curY;
+      return `${acc} C ${cx1} ${cy1}, ${cx2} ${cy2}, ${curX} ${curY}`;
     }, '');
   }, [points]);
 

@@ -11,6 +11,15 @@ error_reporting(E_ALL & ~E_DEPRECATED & ~E_NOTICE);
 ini_set('display_errors', '0');
 ini_set('log_errors', '1');
 
+// Global CORS Desteği (Tarayıcı Konsolundan ve Mobil Uygulamadan İstekler İçin)
+header('Access-Control-Allow-Origin: *');
+header('Access-Control-Allow-Methods: GET, POST, OPTIONS, PUT, DELETE');
+header('Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With, Origin, Accept');
+if (($_SERVER['REQUEST_METHOD'] ?? '') === 'OPTIONS') {
+    http_response_code(200);
+    exit;
+}
+
 // 1. Statik Dosya Kontrolü (Görseller, CSS, JS vb.)
 $uri = urldecode(parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH) ?? '/');
 
@@ -157,6 +166,68 @@ function downloadImageAsWebP(string $url, string $destPath): bool {
     }
 
     return (bool)file_put_contents($destPath, $binary);
+}
+
+function processBulkCoinImage(?string $imgInput, string $prefix, string $slug): ?string {
+    if (empty($imgInput)) return null;
+    $imgInput = trim($imgInput);
+    if (empty($imgInput)) return null;
+
+    // Zaten saklanmış yerel storage yolu ise
+    if (str_starts_with($imgInput, 'coins/')) {
+        return $imgInput;
+    }
+
+    $destDir = __DIR__ . '/storage/app/public/coins/imported';
+    if (!is_dir($destDir)) {
+        @mkdir($destDir, 0755, true);
+    }
+
+    $safeSlug = preg_replace('/[^a-z0-9_-]/i', '_', substr($slug, 0, 30));
+    $filename = $prefix . '_' . $safeSlug . '_' . substr(md5($imgInput . microtime()), 0, 8) . '.webp';
+    $destPath = $destDir . '/' . $filename;
+    $relPath = 'coins/imported/' . $filename;
+
+    // 1. Data URI ise (data:image/...)
+    if (preg_match('/^data:image\/(\w+);base64,(.+)$/', $imgInput, $m)) {
+        $bin = base64_decode($m[2]);
+        if ($bin) {
+            $tmpFile = tempnam(sys_get_temp_dir(), 'coin_');
+            file_put_contents($tmpFile, $bin);
+            if (convertImageToWebP($tmpFile, $destPath)) {
+                @unlink($tmpFile);
+                return $relPath;
+            }
+            @unlink($tmpFile);
+        }
+    }
+
+    // 2. HTTP / HTTPS URL ise
+    if (preg_match('/^https?:\/\//i', $imgInput)) {
+        if (downloadImageAsWebP($imgInput, $destPath)) {
+            return $relPath;
+        }
+    }
+
+    // 3. Yerel Dosya Yolu ise (örn. ./sikkeler_arsiv/images/... veya absolute path)
+    $localCandidates = [
+        $imgInput,
+        __DIR__ . '/../' . ltrim($imgInput, './\\'),
+        __DIR__ . '/../sikkeler_arsiv/images/' . basename($imgInput),
+        __DIR__ . '/storage/app/public/' . ltrim($imgInput, '/'),
+    ];
+    foreach ($localCandidates as $cand) {
+        if (file_exists($cand) && is_file($cand)) {
+            if (convertImageToWebP($cand, $destPath)) {
+                return $relPath;
+            }
+            if (@copy($cand, $destPath)) {
+                return $relPath;
+            }
+        }
+    }
+
+    return null;
 }
 
 function callGeminiForCoinTranslation(PDO $pdo, string $rawTitle, string $rawDesc, string $rawPrice = ''): ?array {
@@ -397,19 +468,20 @@ function decodeNumismaticHtml(string $text): string {
  * AV (Altın), AR (Gümüş), AE (Bronz/Bakır), EL (Elektrum), BI (Bilyon), PB (Kurşun), OR (Pirinç), PT (Platin)
  */
 function detectNumismaticMetal(string $text, string $url = '', ?string $aiMetal = null): array {
+    // 0. AI Metali Varsa
     if (!empty($aiMetal)) {
         $aiClean = trim($aiMetal);
-        if (preg_match('/Gümüş|Silver|Argentum|\bAR\b/ui', $aiClean)) {
-            return ['Gümüş (AR)', 'AR'];
-        }
         if (preg_match('/Altın|Gold|Aurum|\bAV\b|\bAU\b/ui', $aiClean)) {
             return ['Altın (AV)', 'AV'];
         }
-        if (preg_match('/Bronz|Bakır|Bronze|Copper|Aes|\bAE\b|Æ/ui', $aiClean)) {
-            return ['Bronz (AE)', 'AE'];
-        }
         if (preg_match('/Elektrum|Electrum|\bEL\b/ui', $aiClean)) {
             return ['Elektrum (EL)', 'EL'];
+        }
+        if (preg_match('/Bronz|Bakır|Bronze|Copper|Aes|\bAE\b|Æ|&#198;|&#230;/ui', $aiClean)) {
+            return ['Bronz (AE)', 'AE'];
+        }
+        if (preg_match('/Gümüş|Silver|Argentum|\bAR\b/ui', $aiClean)) {
+            return ['Gümüş (AR)', 'AR'];
         }
         if (preg_match('/Bilyon|Billon|\bBI\b/ui', $aiClean)) {
             return ['Bilyon (BI)', 'BI'];
@@ -425,26 +497,11 @@ function detectNumismaticMetal(string $text, string $url = '', ?string $aiMetal 
         }
     }
 
-    $scope = $text . ' ' . $url;
+    $rawScope = $text . ' ' . $url;
+    // HTML entityleri çöz (& #198; -> Æ, & #230; -> æ vb.)
+    $scope = html_entity_decode($rawScope, ENT_QUOTES | ENT_HTML5, 'UTF-8');
 
-    // 1. GÜMÜŞ (AR) - Argentum
-    // Nümizmatikte AR standart gümüştür. (Obol, Denarius, Tetradrachm, Drachm vb. daima gümüştür)
-    if (
-        preg_match('/(?:^|[^a-zA-Z0-9])(?:AR|Argentum|Silver|Gümüş)(?:[^a-zA-Z0-9]|$)/iu', $scope) ||
-        preg_match('/[_\-\/](?:ar)[_\-\/]/i', $url) ||
-        preg_match('/\b(Denarius|Tetradrachm|Tetradrahmi|Drachm|Drahmi|Obol|Obolos|Obole|Diobol|Triobol|Hemidrachm|Didrachm|Siliqua|Miliarense|Quinarius|Cistophoric|Akçe|Dirhem|Shekel|Şekel)\b/i', $scope)
-    ) {
-        // Kontrol: Bilyon (düşük ayarlı gümüş) veya Elektrum belirtilmişse öncelik ver
-        if (preg_match('/(?:^|[^a-zA-Z0-9])(?:BI|Billon|Bilyon|Potin)(?:[^a-zA-Z0-9]|$)/iu', $scope)) {
-            return ['Bilyon (BI)', 'BI'];
-        }
-        if (preg_match('/(?:^|[^a-zA-Z0-9])(?:EL|Electrum|Elektrum)(?:[^a-zA-Z0-9]|$)/iu', $scope)) {
-            return ['Elektrum (EL)', 'EL'];
-        }
-        return ['Gümüş (AR)', 'AR'];
-    }
-
-    // 2. ELEKTRUM (EL) - Electrum (Doğal / Yapay Altın-Gümüş Alaşımı)
+    // 1. ELEKTRUM (EL) - Electrum (Doğal / Yapay Altın-Gümüş Alaşımı)
     if (
         preg_match('/(?:^|[^a-zA-Z0-9])(?:EL|Electrum|Elektrum)(?:[^a-zA-Z0-9]|$)/iu', $scope) ||
         preg_match('/[_\-\/](?:el)[_\-\/]/i', $url) ||
@@ -453,17 +510,26 @@ function detectNumismaticMetal(string $text, string $url = '', ?string $aiMetal 
         return ['Elektrum (EL)', 'EL'];
     }
 
-    // 3. ALTIN (AV / AU) - Aurum
+    // 2. ALTIN (AV / AU) - Aurum
     if (
         preg_match('/(?:^|[^a-zA-Z0-9])(?:AV|AU|Aurum|Gold|Altın)(?:[^a-zA-Z0-9]|$)/iu', $scope) ||
         preg_match('/[_\-\/](?:av|au)[_\-\/]/i', $url) ||
         preg_match('/\b(Aureus|Solidus|Sultani|Dinar|Hyperpyron|Histamenon|Tremissis|Semissis)\b/i', $scope)
     ) {
-        // Eğer "AR Stater" ise gümüşe döner
-        if (preg_match('/\b(AR|Silver|Gümüş)\b/i', $scope)) {
-            return ['Gümüş (AR)', 'AR'];
+        if (!preg_match('/\b(AR|Silver|Gümüş)\b/i', $scope)) {
+            return ['Altın (AV)', 'AV'];
         }
-        return ['Altın (AV)', 'AV'];
+    }
+
+    // 3. BRONZ / BAKIR (AE) - Kesin ve Açık Bronz İbareleri (Gümüşten önce kontrol edilir!)
+    // Örn: AE20, AE12, AE16.5, Æ15, &#198;15, Bronze, Bronz, Chalkous, Assarion, Follis, Sestertius, As
+    if (
+        preg_match('/(?:Æ|AE)\s*\d+/iu', $scope) ||
+        preg_match('/\b(?:AE|Æ|Aes|Bronze|Bronz|Copper|Bakır|Chalkous|Dichalkon|Hemiobol|Assarion|Follis|Sestertius|Dupondius|Quadrans|Semis)\b/iu', $scope) ||
+        preg_match('/[_\-\/](?:ae|bronze)[_\-\/]/i', $url) ||
+        preg_match('/\bAs\b/u', $scope)
+    ) {
+        return ['Bronz (AE)', 'AE'];
     }
 
     // 4. BİLYON (BI) - Billon (Düşük Ayarlı Gümüş-Bakır)
@@ -474,7 +540,7 @@ function detectNumismaticMetal(string $text, string $url = '', ?string $aiMetal 
         return ['Bilyon (BI)', 'BI'];
     }
 
-    // 5. PİRİNÇ (OR) - Orichalcum (Sestertius / Dupondius çinko-bakır alaşımı)
+    // 5. PİRİNÇ (OR) - Orichalcum
     if (
         preg_match('/(?:^|[^a-zA-Z0-9])(?:OR|Orichalcum|Pirinç)(?:[^a-zA-Z0-9]|$)/iu', $scope) ||
         preg_match('/[_\-\/](?:or)[_\-\/]/i', $url)
@@ -482,7 +548,7 @@ function detectNumismaticMetal(string $text, string $url = '', ?string $aiMetal 
         return ['Pirinç (OR)', 'OR'];
     }
 
-    // 6. KURŞUN (PB) - Plumbum (Mühür, Ağırlık, Jeton)
+    // 6. KURŞUN (PB) - Plumbum
     if (
         preg_match('/(?:^|[^a-zA-Z0-9])(?:PB|Plumbum|Lead|Kurşun)(?:[^a-zA-Z0-9]|$)/iu', $scope) ||
         preg_match('/[_\-\/](?:pb)[_\-\/]/i', $url)
@@ -498,16 +564,16 @@ function detectNumismaticMetal(string $text, string $url = '', ?string $aiMetal 
         return ['Platin (PT)', 'PT'];
     }
 
-    // 8. BRONZ / BAKIR (AE) - Aes
+    // 8. GÜMÜŞ (AR) - Argentum (Nümizmatikte AR)
     if (
-        preg_match('/(?:^|[^a-zA-Z0-9])(?:AE|Æ|Aes|Bronze|Bronz|Copper|Bakır)(?:[^a-zA-Z0-9]|$)/iu', $scope) ||
-        preg_match('/[_\-\/](?:ae)[_\-\/]/i', $url) ||
-        preg_match('/\b(Sestertius|Dupondius|As\b|Assarion|Follis|Semis|Quadrans|Chalkous|Hemiobol)\b/i', $scope) ||
-        preg_match('/(?:Æ|AE)\d+/iu', $scope)
+        preg_match('/(?:^|[^a-zA-Z0-9])(?:AR|Argentum|Silver|Gümüş)(?:[^a-zA-Z0-9]|$)/iu', $scope) ||
+        preg_match('/[_\-\/](?:ar)[_\-\/]/i', $url) ||
+        preg_match('/\b(Denarius|Tetradrachm|Tetradrahmi|Drachm|Drahmi|Obol|Obolos|Obole|Diobol|Triobol|Hemidrachm|Didrachm|Siliqua|Miliarense|Quinarius|Cistophoric|Akçe|Dirhem|Shekel|Şekel|Antoninianus)\b/i', $scope)
     ) {
-        return ['Bronz (AE)', 'AE'];
+        return ['Gümüş (AR)', 'AR'];
     }
 
+    // Varsayılan: Eğer antik dönem sikkesi ve hiçbir metal uyuşmuyorsa, genel kabul Bronz/Bakırdır
     return ['Bronz (AE)', 'AE'];
 }
 
@@ -519,10 +585,11 @@ function detectNumismaticStandard(string $text, string $url = '', ?string $aiSta
         return decodeNumismaticHtml(trim($aiStandard));
     }
 
-    $scope = $text . ' ' . $url;
+    $rawScope = $text . ' ' . $url;
+    $scope = html_entity_decode($rawScope, ENT_QUOTES | ENT_HTML5, 'UTF-8');
 
-    // Æxx veya AExx kontrolü (Örn: Æ14, Æ20, AE25)
-    if (preg_match('/(?:Æ|AE)(\d{1,2})/iu', $scope, $m)) {
+    // Æxx veya AExx kontrolü (Örn: Æ14, Æ20, AE25, AE16.5, &#198;15 vb.)
+    if (preg_match('/(?:Æ|AE)\s*(\d{1,2}(?:\.\d+)?)/iu', $scope, $m)) {
         return 'Æ' . $m[1];
     }
 
@@ -636,13 +703,34 @@ function translateNumismaticDescription(string $enText, string $ruler = '', stri
     return $translated;
 }
 
-function detectNumismaticCivilization(string $text, ?string $aiCiv, array $civs): array {
+function detectNumismaticCivilization(string $text, ?string $aiCiv = null, array $civs = []): array {
+    global $pdo;
+    if (empty($civs) && isset($pdo)) {
+        try {
+            $civs = $pdo->query("SELECT id, name FROM civilizations")->fetchAll(PDO::FETCH_ASSOC);
+        } catch (\Throwable $e) {}
+    }
+
     $rawSearch = ($aiCiv ? ($aiCiv . ' ') : '') . $text;
     // URL slug ve kelime ayrımlarını (tire, alt çizgi vb.) boşluğa çevirerek tam kelime eşleştirmesini garantile
     $search = preg_replace('/[_\-\/.:?&=]+/', ' ', $rawSearch);
 
-    // 1. Antik Yunan (Tüm Grek bölgeleri, Magna Graecia, Sicilya, Anadolu, Helenistik krallıklar)
-    $greekPattern = '/\b(Greek|Grek|Antik Yunan|Hellenistic|Macedon|Macedonia|Thrace|Thessaly|Thessalian|Larissa|Attica|Athens|Athenai|Corinth|Korinthos|Boeotia|Thebes|Euboea|Peloponnese|Sparta|Elis|Olympia|Crete|Rhodes|Rodos|Ionia|İyonya|Ephesos|Ephesus|Miletos|Miletus|Chios|Samos|Smyrna|Aiolis|Aeolis|Kyme|Mysia|Pergamon|Kyzikos|Cyzicus|Troas|Caria|Karia|Knidos|Lycia|Likya|Pamphylia|Pamfilya|Perge|Aspendos|Side|Cilicia|Kilikya|Bithynia|Pontus|Amisos|Sinope|Magna Graecia|Campania|Neapolis|Napoli|Calabria|Tarentum|Taras|Lucania|Metapontum|Velia|Thurium|Bruttium|Kroton|Sicily|Sicilia|Syracuse|Siraküza|Akragas|Gela|Leontini|Messana|Celtic|Gaul|Massalia|Marseille|Ptolem|Seleucid|Alexander|İskender|Lysimach|Philip|SNG|SNGANS|HGC)\b/i';
+    // 0. Pers / Ahameniş İmparatorluğu (Achaemenid Empire - Siglos / Daric)
+    if (preg_match('/\b(Achaemenid|Persian|Persia|Persis|Siglos|Daric|Artaxerxes|Darius|Xerxes|Cyrus|Ahameniş|Pers)\b/i', $search)) {
+        foreach ($civs as $c) {
+            if (stripos($c['name'], 'Pers') !== false || stripos($c['name'], 'Ahameniş') !== false) {
+                return [(int)$c['id'], $c['name']];
+            }
+        }
+        foreach ($civs as $c) {
+            if (stripos($c['name'], 'Doğu') !== false || stripos($c['name'], 'Yunan') !== false) {
+                return [(int)$c['id'], 'Pers İmparatorluğu (Ahameniş)'];
+            }
+        }
+    }
+
+    // 1. Antik Yunan (Tüm Grek bölgeleri, Magna Graecia, Sicilya, Anadolu, Pontos, Troas, İyonya, Trakya, Helenistik krallıklar)
+    $greekPattern = '/\b(Greek|Grek|Antik Yunan|Hellenistic|Macedon|Macedonia|Thrace|Maroneia|Thessaly|Thessalian|Larissa|Attica|Athens|Athenai|Corinth|Korinthos|Boeotia|Thebes|Euboea|Peloponnese|Sparta|Elis|Olympia|Crete|Rhodes|Rodos|Ionia|İyonya|Ephesos|Ephesus|Miletos|Miletus|Chios|Samos|Smyrna|Aiolis|Aeolis|Kyme|Mysia|Pergamon|Kyzikos|Cyzicus|Troas|Skepsis|Caria|Karia|Knidos|Lycia|Likya|Pamphylia|Pamfilya|Perge|Aspendos|Side|Cilicia|Kilikya|Bithynia|Pontus|Pontos|Amisos|Sinope|Magna Graecia|Campania|Neapolis|Napoli|Calabria|Tarentum|Taras|Lucania|Metapontum|Velia|Thurium|Bruttium|Kroton|Sicily|Sicilia|Syracuse|Siraküza|Akragas|Gela|Leontini|Messana|Hieron|Celtic|Gaul|Massalia|Marseille|Ptolem|Seleucid|Alexander|İskender|Lysimach|Philip|SNG|SNGANS|HGC)\b/i';
 
     if (preg_match($greekPattern, $search)) {
         foreach ($civs as $c) {
@@ -670,7 +758,16 @@ function detectNumismaticCivilization(string $text, ?string $aiCiv, array $civs)
         }
     }
 
-    // 4. Bizans İmparatorluğu
+    // 4. Doğu & Arabistan Antik Emisyonları
+    if (preg_match('/\b(Arabia|Pre-Islamic|Kenzen|Nabataean|Himyarite|Characene)\b/i', $search)) {
+        foreach ($civs as $c) {
+            if (stripos($c['name'], 'Yunan') !== false || stripos($c['name'], 'Doğu') !== false) {
+                return [(int)$c['id'], $c['name']];
+            }
+        }
+    }
+
+    // 5. Bizans İmparatorluğu
     if (preg_match('/\b(Byzantine|Byzantium|Justinian|Phocas|Heraclius|Theophilus|Basil|Alexios|Michael|Follis|Hyperpyron|Bizans)\b/i', $search)) {
         foreach ($civs as $c) {
             if (stripos($c['name'], 'Bizans') !== false) {
@@ -679,7 +776,7 @@ function detectNumismaticCivilization(string $text, ?string $aiCiv, array $civs)
         }
     }
 
-    // 5. Osmanlı İmparatorluğu
+    // 6. Osmanlı İmparatorluğu
     if (preg_match('/\b(Ottoman|Osmanlı|Akçe|Sultani|Tuğra|Mehmed|Süleyman|Selim|Murad|Mahmud|Abdülhamid|Kostantiniyye|Bursa Darb)\b/i', $search)) {
         foreach ($civs as $c) {
             if (stripos($c['name'], 'Osmanlı') !== false) {
@@ -688,7 +785,7 @@ function detectNumismaticCivilization(string $text, ?string $aiCiv, array $civs)
         }
     }
 
-    // 6. Sasani & Kuşan
+    // 7. Sasani & Kuşan
     if (preg_match('/\b(Sasanian|Sasani|Kushan|Shapur|Khosrow|Kanishka)\b/i', $search)) {
         foreach ($civs as $c) {
             if (stripos($c['name'], 'Sasani') !== false) {
@@ -697,7 +794,7 @@ function detectNumismaticCivilization(string $text, ?string $aiCiv, array $civs)
         }
     }
 
-    // 7. Roma İmparatorluğu (Sadece gerçek Roma imparatorluk terimleri ve hükümdarları eşleşirse)
+    // 8. Roma İmparatorluğu (Sadece gerçek Roma imparatorluk terimleri ve hükümdarları eşleşirse)
     if (preg_match('/\b(Rome|Roman|Denarius|Sestertius|Antoninianus|Dupondius|As\b|Caesar|Augustus|Nero|Trajan|Hadrian|Antoninus|Marcus Aurelius|Commodus|Septimius Severus|Caracalla|Gordian|Trebonianus|Diocletian|Lucilla|RIC|Domitian|Vespasian|Titus)\b/i', $search)) {
         foreach ($civs as $c) {
             if (stripos($c['name'], 'Roma') !== false) {
@@ -706,15 +803,36 @@ function detectNumismaticCivilization(string $text, ?string $aiCiv, array $civs)
         }
     }
 
-    return [(int)$civs[0]['id'], $civs[0]['name']];
+    if (!empty($civs)) {
+        return [(int)$civs[0]['id'], $civs[0]['name']];
+    }
+    return [1, 'Antik Yunan'];
 }
 
-function detectNumismaticMint(string $text, ?string $aiMint, array $mints): array {
+function detectNumismaticMint(string $text, ?string $aiMint = null, array $mints = []): array {
+    global $pdo;
+    if (empty($mints) && isset($pdo)) {
+        try {
+            $mints = $pdo->query("SELECT id, name, ancient_name, civilization_id FROM mints")->fetchAll(PDO::FETCH_ASSOC);
+        } catch (\Throwable $e) {}
+    }
+
     $rawSearch = ($aiMint ? ($aiMint . ' ') : '') . $text;
     $search = preg_replace('/[_\-\/.:?&=]+/', ' ', $rawSearch);
 
     // 1. Önce özel nümizmatik darphane anahtar kelimelerini tam kelime eşleşmesiyle kontrol et
     $kwMap = [
+        'Amisos' => 'Amisos (Samsun - Pontos)',
+        'Pontos' => 'Amisos (Samsun - Pontos)',
+        'Skepsis' => 'Skepsis (Bayramiç - Troas)',
+        'Troas' => 'Skepsis (Troas)',
+        'Maroneia' => 'Maroneia (Trakya)',
+        'Thrace' => 'Maroneia (Trakya)',
+        'Sardes' => 'Sardes (Salihli - Lidya)',
+        'Sardis' => 'Sardes (Salihli - Lidya)',
+        'Lydia' => 'Sardes (Salihli - Lidya)',
+        'Kenzen' => 'Jabal Kenzen (Doğu Arabistan)',
+        'Jabal' => 'Jabal Kenzen (Doğu Arabistan)',
         'Neapolis' => 'Neapolis (Napoli - Campania)',
         'Campania' => 'Neapolis (Napoli - Campania)',
         'Napoli' => 'Neapolis (Napoli - Campania)',
@@ -755,7 +873,6 @@ function detectNumismaticMint(string $text, ?string $aiMint, array $mints): arra
         'Rome' => 'Roma (Moneta Caesaris)',
         'Antioch' => 'Antakya (Antiochia)',
         'Antiochia' => 'Antakya (Antiochia)',
-        'Sardis' => 'Sardis (Sardes)',
         'Ephesos' => 'Efes (Ephesos)',
         'Ephesus' => 'Efes (Ephesos)',
         'Pergamon' => 'Bergama (Pergamon)',
@@ -771,6 +888,7 @@ function detectNumismaticMint(string $text, ?string $aiMint, array $mints): arra
                     return [(int)$m['id'], $m['name']];
                 }
             }
+            return [null, $targetMintName];
         }
     }
 
@@ -790,15 +908,80 @@ function detectNumismaticMint(string $text, ?string $aiMint, array $mints): arra
     return [null, null];
 }
 
-function detectNumismaticRuler(string $text, ?string $aiRuler): string {
+function detectNumismaticRuler(string $text, ?string $aiRuler = null): string {
     if (!empty($aiRuler) && $aiRuler !== 'Bilinmeyen Hükümdar') {
         return $aiRuler;
     }
 
-    $clean = preg_replace('/[_\-\/.:?&=]+/', ' ', $text);
+    $rawClean = preg_replace('/[_\-\/.:?&=]+/', ' ', $text);
+    $clean = html_entity_decode($rawClean, ENT_QUOTES | ENT_HTML5, 'UTF-8');
 
-    // 1. Yunan Şehir Devletleri (Polis) ve Özerk Emisyonlar (ASLA 'Bilinmeyen Hükümdar' Yapılmaz)
+    // 1. Özel Krallar, Hanedanlar ve Roma İmparatorları (Tam eşleşme önceliği)
+    $rulersList = [
+        'Artaxerxes' => 'II. / III. Artakhşasa (Artaxerxes)',
+        'Darius' => 'Büyük Darius (I. / II. / III. Darius)',
+        'Xerxes' => 'I. Kserkses (Xerxes)',
+        'Cyrus' => 'Büyük Kiros (Kuruş)',
+        'Achaemenid' => 'Ahameniş Pers Kralları',
+        'Hieron II' => 'II. Hieron (Siraküza Kralı)',
+        'Hieron' => 'II. Hieron (Siraküza Kralı)',
+        'Lysimachos' => 'Lysimachos (Trakya Kralı)',
+        'Lysimachus' => 'Lysimachos (Trakya Kralı)',
+        'Alexander the Great' => 'Büyük İskender',
+        'Alexander' => 'Büyük İskender',
+        'Philip II' => 'II. Philippos',
+        'Mithridates' => 'VI. Mithridates Eupator (Pontos)',
+        'Ptolemy' => 'Ptolemaios Hanedanı',
+        'Ptolem' => 'Ptolemaios Hanedanı',
+        'Seleucid' => 'Selevkos Hanedanı',
+        'Seleukos' => 'Selevkos Hanedanı',
+        'Antiochos' => 'Antiokhos Hanedanı',
+        'Antiochus' => 'Antiokhos Hanedanı',
+        'Diocletian' => 'Diocletianus',
+        'Lucilla' => 'Lucilla (Augusta)',
+        'Trebonianus Gallus' => 'Trebonianus Gallus',
+        'Trebonianus' => 'Trebonianus Gallus',
+        'Domitian' => 'Domitian',
+        'Marcus Aurelius' => 'Marcus Aurelius',
+        'Nero' => 'Nero',
+        'Augustus' => 'Augustus',
+        'Trajan' => 'Trajan',
+        'Hadrian' => 'Hadrian',
+        'Antoninus Pius' => 'Antoninus Pius',
+        'Septimius Severus' => 'Septimius Severus',
+        'Caracalla' => 'Caracalla',
+        'Croesus' => 'Kroisos',
+        'Kroisos' => 'Kroisos',
+        'Constantine' => 'I. Konstantin',
+        'Justinian' => 'I. Justinianus',
+        'Gordian III' => 'III. Gordianus',
+        'Philip I' => 'I. Philippus',
+        'Probus' => 'Probus',
+        'Aurelian' => 'Aurelianus',
+        'Valerian' => 'Valerianus',
+        'Gallienus' => 'Gallienus',
+    ];
+
+    foreach ($rulersList as $needle => $name) {
+        if (preg_match('/\b' . preg_quote($needle, '/') . '\b/i', $clean)) {
+            return $name;
+        }
+    }
+
+    // 2. Yunan Şehir Devletleri (Polis) ve Özerk Emisyonlar (ASLA 'Bilinmeyen Hükümdar' Yapılmaz)
     $greekCityStates = [
+        'Amisos'     => 'Amisos Şehir Devleti (Pontos)',
+        'Skepsis'    => 'Skepsis Şehir Devleti (Troas)',
+        'Troas'      => 'Skepsis Şehir Devleti (Troas)',
+        'Ephesos'    => 'Efes Şehir Devleti (İyonya)',
+        'Ephesus'    => 'Efes Şehir Devleti (İyonya)',
+        'Sardes'     => 'Sardes Şehir Devleti (Lidya)',
+        'Sardis'     => 'Sardes Şehir Devleti (Lidya)',
+        'Maroneia'   => 'Maroneia Şehir Devleti (Trakya)',
+        'Arados'     => 'Arados Şehir Devleti (Fenike)',
+        'Aradus'     => 'Arados Şehir Devleti (Fenike)',
+        'Kenzen'     => 'Arabistan Emisyonu (Jabal Kenzen)',
+        'Jabal'      => 'Arabistan Emisyonu (Jabal Kenzen)',
         'Neapolis'   => 'Neapolis Şehir Devleti (Apollon / Acheloos)',
         'Campania'   => 'Neapolis Şehir Devleti (Apollon / Acheloos)',
         'Tarentum'   => 'Tarentum Şehir Devleti (Taras / Yunus)',
@@ -822,8 +1005,6 @@ function detectNumismaticRuler(string $text, ?string $aiRuler): string {
         'Thessaly'   => 'Tesalya Birliği (Thessalian League)',
         'Larissa'    => 'Larissa Şehir Devleti (Larissa / Şahlanan At)',
         'Rhodes'     => 'Rodos Şehir Devleti (Helios / Gül)',
-        'Ephesos'    => 'Efes Şehir Devleti (Artemis / Arı & Geyik)',
-        'Ephesus'    => 'Efes Şehir Devleti (Artemis / Arı & Geyik)',
         'Miletos'    => 'Miletos Şehir Devleti (Apollon / Aslan)',
         'Chios'      => 'Sakız (Chios) Şehir Devleti (Sfenks / Amfora)',
         'Samos'      => 'Sisam Şehir Devleti (Aslan Postu / Boğa)',
@@ -832,7 +1013,6 @@ function detectNumismaticRuler(string $text, ?string $aiRuler): string {
         'Kyzikos'    => 'Kyzikos Şehir Devleti (Ton Balığı / Satir)',
         'Cyzicus'    => 'Kyzikos Şehir Devleti (Ton Balığı / Satir)',
         'Massalia'   => 'Massalia Şehir Devleti (Apollon / Boğa)',
-        'Amisos'     => 'Amisos Şehir Devleti (Dionysos / Cista Mystica)',
         'Sinope'     => 'Sinope Şehir Devleti (Sinope Nimfi / Kartal)',
         'Istros'     => 'İstros Şehir Devleti (Ters İkiz Başlar / Kartal & Yunus)',
         'Celtic Imitative' => 'Kelt / Massalia Emisyonu (Apollon)',
@@ -844,56 +1024,20 @@ function detectNumismaticRuler(string $text, ?string $aiRuler): string {
         }
     }
 
-    // 2. Krallar, Hanedanlar ve Roma İmparatorları
-    $rulersList = [
-        'Alexander the Great' => 'Büyük İskender',
-        'Alexander' => 'Büyük İskender',
-        'Philip II' => 'II. Philippos',
-        'Lysimach' => 'Lysimachos',
-        'Ptolem' => 'Ptolemaios Hanedanı',
-        'Seleucid' => 'Selevkos Hanedanı',
-        'Diocletian' => 'Diocletianus',
-        'Lucilla' => 'Lucilla (Augusta)',
-        'Trebonianus Gallus' => 'Trebonianus Gallus',
-        'Trebonianus' => 'Trebonianus Gallus',
-        'Domitian' => 'Domitian',
-        'Marcus Aurelius' => 'Marcus Aurelius',
-        'Nero' => 'Nero',
-        'Augustus' => 'Augustus',
-        'Trajan' => 'Trajan',
-        'Hadrian' => 'Hadrian',
-        'Antoninus Pius' => 'Antoninus Pius',
-        'Septimius Severus' => 'Septimius Severus',
-        'Caracalla' => 'Caracalla',
-        'Apollo' => 'Apollon Başı',
-        'Apollon' => 'Apollon Başı',
-        'Athena' => 'Athena Tasviri',
-        'Zeus' => 'Zeus Tasviri',
-        'Arados' => 'Arados Şehir Devleti (Zeus / Kalyon)',
-        'Croesus' => 'Kroisos',
-        'Kroisos' => 'Kroisos',
-        'Constantine' => 'I. Konstantin',
-        'Justinian' => 'I. Justinianus',
-        'Gordian III' => 'III. Gordianus',
-        'Philip I' => 'I. Philippus',
-        'Probus' => 'Probus',
-        'Aurelian' => 'Aurelianus',
-        'Valerian' => 'Valerianus',
-        'Gallienus' => 'Gallienus',
-    ];
-
-    foreach ($rulersList as $needle => $name) {
-        if (preg_match('/\b' . preg_quote($needle, '/') . '\b/i', $clean)) {
-            return $name;
-        }
-    }
+    // 3. Tasvir Bazlı Otorite
+    if (preg_match('/\b(Apollo|Apollon)\b/i', $clean)) return 'Özerk Emisyon (Apollon Tasviri)';
+    if (preg_match('/\b(Athena)\b/i', $clean)) return 'Özerk Emisyon (Athena Tasviri)';
+    if (preg_match('/\b(Zeus)\b/i', $clean)) return 'Özerk Emisyon (Zeus Tasviri)';
+    if (preg_match('/\b(Dionysos|Dionysus)\b/i', $clean)) return 'Özerk Emisyon (Dionysos Tasviri)';
+    if (preg_match('/\b(Tyche)\b/i', $clean)) return 'Özerk Şehir Emisyonu (Tyche Tasviri)';
+    if (preg_match('/\b(Pegasos|Pegasus)\b/i', $clean)) return 'Özerk Şehir Emisyonu (Pegasos Tasviri)';
 
     // Antik Yunan genel özerk otorite tespiti
     if (preg_match('/\b(Greek|Grek|Magna Graecia|SNG|Tetradrachm|Drachm|Obol|Stater)\b/i', $clean)) {
-        return 'Özerk Yunan Şehir Devleti Otoritesi';
+        return 'Özerk Yunan Şehir Devleti';
     }
 
-    return 'Bilinmeyen Hükümdar';
+    return 'Özerk Şehir Devleti / Hükümdar';
 }
 
 function parseNumismaticYears(string $text, ?int $aiStart = null, ?int $aiEnd = null): array {
@@ -1002,6 +1146,134 @@ if ($uri === '/' || $uri === '/admin') {
     redirect('/admin/coins');
 }
 
+function detectAndExtractCategoryProductUrls(string $url, int $maxPages = 1): array {
+    $parsed = parse_url($url);
+    $baseUrl = ($parsed['scheme'] ?? 'https') . '://' . ($parsed['host'] ?? 'www.vcoins.com');
+
+    $fetchHtml = function($targetUrl) {
+        $ch = curl_init();
+        curl_setopt($ch, CURLOPT_URL, $targetUrl);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 15);
+        curl_setopt($ch, CURLOPT_USERAGENT, 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36');
+        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
+        $html = curl_exec($ch);
+        curl_close($ch);
+        return $html ?: '';
+    };
+
+    $html = $fetchHtml($url);
+    if (empty($html)) {
+        return ['is_category' => false, 'urls' => [$url], 'category_title' => ''];
+    }
+
+    $categoryTitle = '';
+    if (preg_match('/<title[^>]*>(.*?)<\/title>/is', $html, $tm)) {
+        $categoryTitle = trim(explode('–', explode('-', strip_tags($tm[1]))[0])[0]);
+    }
+
+    preg_match_all('#href=[\'"]([^\'"]*/product/[^\'"]*)[\'"]#i', $html, $matches);
+    $found = [];
+    foreach ($matches[1] ?? [] as $href) {
+        if (stripos($href, 'watchlist') !== false || stripos($href, 'javascript:') !== false) {
+            continue;
+        }
+        $full = str_starts_with($href, 'http') ? $href : ($baseUrl . '/' . ltrim($href, '/'));
+        $found[] = $full;
+    }
+    $found = array_values(array_unique($found));
+
+    // Kategori tespiti: 2 veya daha fazla ürün linki veya URL kategori deseni
+    if (count($found) >= 2 || preg_match('#/(?:coins/ancient|category|roman_|greek_|[a-z0-9_]+-\d+\.aspx)#i', $url)) {
+        $allProductUrls = $found;
+
+        if ($maxPages > 1) {
+            preg_match_all('#href=[\'"]([^\'"]*(?:page|pg)=(\d+)[^\'"]*)[\'"]#i', $html, $pageMatches);
+            $pagesSeen = [];
+            foreach ($pageMatches[1] ?? [] as $idx => $pHref) {
+                $pNum = (int)($pageMatches[2][$idx] ?? 0);
+                if ($pNum > 1 && $pNum <= $maxPages && !isset($pagesSeen[$pNum])) {
+                    $pagesSeen[$pNum] = str_starts_with($pHref, 'http') ? $pHref : ($baseUrl . '/' . ltrim($pHref, '/'));
+                }
+            }
+            ksort($pagesSeen);
+            foreach ($pagesSeen as $pNum => $pUrl) {
+                $pHtml = $fetchHtml($pUrl);
+                preg_match_all('#href=[\'"]([^\'"]*/product/[^\'"]*)[\'"]#i', $pHtml, $pMatches);
+                foreach ($pMatches[1] ?? [] as $pHref) {
+                    if (stripos($pHref, 'watchlist') !== false) continue;
+                    $allProductUrls[] = str_starts_with($pHref, 'http') ? $pHref : ($baseUrl . '/' . ltrim($pHref, '/'));
+                }
+            }
+            $allProductUrls = array_values(array_unique($allProductUrls));
+        }
+
+        return [
+            'is_category' => true,
+            'category_title' => $categoryTitle ?: 'Kategori Listesi',
+            'urls' => $allProductUrls,
+            'count' => count($allProductUrls)
+        ];
+    }
+
+    return [
+        'is_category' => false,
+        'category_title' => '',
+        'urls' => [$url],
+        'count' => 1
+    ];
+}
+
+// -----------------------------------------------------------------------------
+// ROTA: POST /admin/coins/expand-urls (Kategori & Liste Linklerini Ürünlere Genişlet)
+// -----------------------------------------------------------------------------
+if ($uri === '/admin/coins/expand-urls' && $method === 'POST') {
+    $rawInput = file_get_contents('php://input');
+    $payload = json_decode($rawInput, true) ?? [];
+    $inputUrls = $payload['urls'] ?? [];
+    $maxPages = (int)($payload['max_pages'] ?? 1);
+    if ($maxPages < 1) $maxPages = 1;
+    if ($maxPages > 1000) $maxPages = 1000;
+
+    if (empty($inputUrls) || !is_array($inputUrls)) {
+        jsonResponse(['success' => false, 'message' => 'Lütfen geçerli bir URL listesi iletiniz.'], 400);
+    }
+
+    $finalUrls = [];
+    $categoriesFound = [];
+
+    foreach ($inputUrls as $u) {
+        $u = trim($u);
+        if (empty($u) || !filter_var($u, FILTER_VALIDATE_URL)) continue;
+
+        $expanded = detectAndExtractCategoryProductUrls($u, $maxPages);
+        if ($expanded['is_category']) {
+            $categoriesFound[] = [
+                'title' => $expanded['category_title'],
+                'url' => $u,
+                'count' => $expanded['count']
+            ];
+            foreach ($expanded['urls'] as $pUrl) {
+                $finalUrls[] = $pUrl;
+            }
+        } else {
+            $finalUrls[] = $u;
+        }
+    }
+
+    $finalUrls = array_values(array_unique($finalUrls));
+
+    jsonResponse([
+        'success' => true,
+        'has_category' => !empty($categoriesFound),
+        'categories' => $categoriesFound,
+        'total_urls' => count($finalUrls),
+        'urls' => $finalUrls
+    ]);
+}
+
 // -----------------------------------------------------------------------------
 // ROTA: POST /admin/coins/fetch-from-url (Akıllı Dış Bağlantı Ayrıştırıcı)
 // -----------------------------------------------------------------------------
@@ -1015,6 +1287,19 @@ if ($uri === '/admin/coins/fetch-from-url' && $method === 'POST') {
             'success' => false,
             'message' => 'Lütfen geçerli bir internet adresi (https://www.vcoins.com/...) giriniz.',
         ], 422);
+    }
+
+    // Eğer doğrudan kategori URL'si gönderildiyse
+    $catCheck = detectAndExtractCategoryProductUrls($url, 1);
+    if ($catCheck['is_category'] && $catCheck['count'] > 1) {
+        jsonResponse([
+            'success' => true,
+            'is_category' => true,
+            'category_title' => $catCheck['category_title'],
+            'count' => $catCheck['count'],
+            'product_urls' => $catCheck['urls'],
+            'message' => "Bu bağlantı bir kategori sayfasıdır ve içinde {$catCheck['count']} adet sikke tespit edildi."
+        ]);
     }
 
     $isDomitianSample = (stripos($url, 'domitian_denarius.aspx') !== false || stripos($url, 'ars_coin_numismatics') !== false);
@@ -1481,6 +1766,11 @@ if ($uri === '/admin/coins' && $method === 'GET') {
     exit;
 }
 
+// CLI / Test Çalıştırmalarında Router'ı Atlama ($pdo hazır olduktan sonra)
+if (php_sapi_name() === 'cli' && empty($_SERVER['REQUEST_METHOD'])) {
+    return;
+}
+
 // -----------------------------------------------------------------------------
 // ROTA: GET /admin/coins/create (Sikke Ekleme Formu)
 // -----------------------------------------------------------------------------
@@ -1490,6 +1780,44 @@ if ($uri === '/admin/coins/create' && $method === 'GET') {
     $coin = null; // Yeni sikke
     include __DIR__ . '/server_views/form.php';
     exit;
+}
+
+// CLI / Test Çalıştırmalarında Router'ı Atlama ($pdo hazır olduktan sonra)
+if (php_sapi_name() === 'cli' && empty($_SERVER['REQUEST_METHOD'])) {
+    return;
+}
+
+// -----------------------------------------------------------------------------
+// ROTA: GET /admin/coins/bulk (Toplu Sikke İçe Aktarma Arayüzü)
+// -----------------------------------------------------------------------------
+if ($uri === '/admin/coins/bulk' && $method === 'GET') {
+    $civs = $pdo->query("SELECT id, name, era_period FROM civilizations ORDER BY name")->fetchAll(PDO::FETCH_ASSOC);
+    $mints = $pdo->query("SELECT id, civilization_id, name, ancient_name FROM mints ORDER BY name")->fetchAll(PDO::FETCH_ASSOC);
+
+    $archiveFile = __DIR__ . '/../sikkeler_arsiv/raw_coins.json';
+    $archiveExists = file_exists($archiveFile);
+    $archiveCoinCount = 0;
+    $archiveModified = null;
+    if ($archiveExists) {
+        $raw = @file_get_contents($archiveFile);
+        $arr = json_decode($raw, true);
+        if (is_array($arr)) $archiveCoinCount = count($arr);
+        $archiveModified = date('d.m.Y H:i', filemtime($archiveFile));
+    }
+    $archiveImgDir = __DIR__ . '/../sikkeler_arsiv/images';
+    $archiveImgCount = 0;
+    if (is_dir($archiveImgDir)) {
+        $imgs = glob($archiveImgDir . '/*.{jpg,jpeg,png,webp}', GLOB_BRACE);
+        if ($imgs) $archiveImgCount = count($imgs);
+    }
+
+    include __DIR__ . '/server_views/bulk_import.php';
+    exit;
+}
+
+// CLI / Test Çalıştırmalarında Router'ı Atlama ($pdo hazır olduktan sonra)
+if (php_sapi_name() === 'cli' && empty($_SERVER['REQUEST_METHOD'])) {
+    return;
 }
 
 // -----------------------------------------------------------------------------
@@ -1509,6 +1837,11 @@ if (preg_match('#^/admin/coins/(\d+)/edit$#', $uri, $matches) && $method === 'GE
     $mints = $pdo->query("SELECT id, civilization_id, name, ancient_name FROM mints ORDER BY name")->fetchAll();
     include __DIR__ . '/server_views/form.php';
     exit;
+}
+
+// CLI / Test Çalıştırmalarında Router'ı Atlama ($pdo hazır olduktan sonra)
+if (php_sapi_name() === 'cli' && empty($_SERVER['REQUEST_METHOD'])) {
+    return;
 }
 
 // -----------------------------------------------------------------------------
@@ -1807,6 +2140,11 @@ if ($uri === '/admin/civilizations' && $method === 'GET') {
     exit;
 }
 
+// CLI / Test Çalıştırmalarında Router'ı Atlama ($pdo hazır olduktan sonra)
+if (php_sapi_name() === 'cli' && empty($_SERVER['REQUEST_METHOD'])) {
+    return;
+}
+
 // -----------------------------------------------------------------------------
 // ROTA: GET /admin/mints (Antik Darphaneler Haritası)
 // -----------------------------------------------------------------------------
@@ -1821,6 +2159,11 @@ if ($uri === '/admin/mints' && $method === 'GET') {
     $mints = $stmt->fetchAll();
     include __DIR__ . '/server_views/mints.php';
     exit;
+}
+
+// CLI / Test Çalıştırmalarında Router'ı Atlama ($pdo hazır olduktan sonra)
+if (php_sapi_name() === 'cli' && empty($_SERVER['REQUEST_METHOD'])) {
+    return;
 }
 
 // -----------------------------------------------------------------------------
@@ -1839,6 +2182,11 @@ if ($uri === '/admin/ai/settings' && $method === 'GET') {
     }
     include __DIR__ . '/server_views/ai_settings.php';
     exit;
+}
+
+// CLI / Test Çalıştırmalarında Router'ı Atlama ($pdo hazır olduktan sonra)
+if (php_sapi_name() === 'cli' && empty($_SERVER['REQUEST_METHOD'])) {
+    return;
 }
 
 // -----------------------------------------------------------------------------
@@ -1870,6 +2218,11 @@ if ($uri === '/admin/glossary' && $method === 'GET') {
     $terms = $stmt->fetchAll();
     include __DIR__ . '/server_views/glossary.php';
     exit;
+}
+
+// CLI / Test Çalıştırmalarında Router'ı Atlama ($pdo hazır olduktan sonra)
+if (php_sapi_name() === 'cli' && empty($_SERVER['REQUEST_METHOD'])) {
+    return;
 }
 
 // -----------------------------------------------------------------------------
@@ -2011,6 +2364,682 @@ if ($uri === '/api/v1/coins' && $method === 'GET') {
             'per_page' => $totalCount,
             'total' => $totalCount,
         ]
+    ]);
+}
+
+// -----------------------------------------------------------------------------
+// REST API: POST /api/v1/coins/harvest_category (Kategori Sayfasından Otomatik Çek & Ekle)
+// -----------------------------------------------------------------------------
+if ($uri === '/api/v1/coins/harvest_category' && $method === 'POST') {
+    $rawInput = file_get_contents('php://input');
+    $payload = json_decode($rawInput, true) ?? [];
+    $categoryUrl = trim($payload['url'] ?? $_POST['url'] ?? '');
+    $rawHtmlInput = trim($payload['html'] ?? $_POST['html'] ?? '');
+    $cookie = trim($payload['cookie'] ?? $_POST['cookie'] ?? '');
+    $page = (int)($payload['page'] ?? $_POST['page'] ?? 1);
+    if ($page < 1) $page = 1;
+    $autoCommit = !empty($payload['auto_commit']);
+    $options = $payload['options'] ?? [];
+    $skipDuplicates = !empty($options['skip_duplicates']);
+    $isPublished = isset($options['is_published']) ? (int)$options['is_published'] : 1;
+    $isFeatured = isset($options['is_featured']) ? (int)$options['is_featured'] : 0;
+
+    if (empty($categoryUrl) && empty($rawHtmlInput)) {
+        jsonResponse(['success' => false, 'message' => 'Lütfen geçerli bir kategori URL adresi giriniz veya sayfa HTML kodunu yapıştırınız.'], 400);
+    }
+
+    $parsedUrl = parse_url($categoryUrl ?: 'https://www.vcoins.com');
+    $baseUrl = ($parsedUrl['scheme'] ?? 'https') . '://' . ($parsedUrl['host'] ?? 'www.vcoins.com');
+
+    $html = '';
+    $httpCode = 200;
+
+    if (!empty($rawHtmlInput)) {
+        // Doğrudan HTML sağlandıysa cURL'e gerek yok (AWS WAF'ı %100 aşar)
+        $html = $rawHtmlInput;
+    } else {
+        // Sayfa numarasını URL'ye ekle / güncelle
+        $targetUrl = $categoryUrl;
+        if ($page > 1) {
+            if (str_contains($targetUrl, 'page=')) {
+                $targetUrl = preg_replace('/page=\d+/', 'page=' . $page, $targetUrl);
+            } else {
+                $sep = str_contains($targetUrl, '?') ? '&' : '?';
+                $targetUrl .= $sep . 'page=' . $page;
+            }
+        }
+
+        // HTML çek
+        $ch = curl_init();
+        curl_setopt($ch, CURLOPT_URL, $targetUrl);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 20);
+        curl_setopt($ch, CURLOPT_USERAGENT, 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36');
+        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
+
+        $httpHeaders = [
+            'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+            'Accept-Language: en-US,en;q=0.9',
+            'Upgrade-Insecure-Requests: 1'
+        ];
+        if (!empty($cookie)) {
+            $httpHeaders[] = 'Cookie: ' . $cookie;
+        }
+        curl_setopt($ch, CURLOPT_HTTPHEADER, $httpHeaders);
+
+        $html = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+
+        if (empty($html) || $httpCode >= 400 || $httpCode === 202 || stripos($html, 'awsWaf') !== false) {
+            if ($httpCode === 202 || stripos($html, 'awsWaf') !== false) {
+                jsonResponse([
+                    'success' => false,
+                    'is_waf_block' => true,
+                    'message' => "Hedef site (VCoins), doğrudan sunucu isteklerine karşı AWS WAF güvenlik doğrulaması (HTTP 202) uyguladı. Çözüm: Sayfayı tarayıcınızda açıp Kaynak Kodunu (HTML) 'Kategori HTML Yapıştır' alanına koyarak tüm sikkeleri tek tıkla çekebilirsiniz."
+                ], 403);
+            }
+            jsonResponse(['success' => false, 'message' => "Hedef kategori sayfası açılamadı (HTTP {$httpCode})."], 502);
+        }
+    }
+
+    // Kategori Başlığı & Toplam Sayfa Tespiti
+    $categoryTitle = 'Kategori';
+    if (preg_match('/<title[^>]*>(.*?)<\/title>/is', $html, $tm)) {
+        $categoryTitle = trim(explode('–', explode('-', strip_tags($tm[1]))[0])[0]);
+    }
+
+    $totalPages = 1;
+    if (preg_match_all('/[?&]page=(\d+)/i', $html, $pm)) {
+        $maxP = max(array_map('intval', $pm[1]));
+        if ($maxP > 1) $totalPages = $maxP;
+    }
+
+    // Medeniyetler ve Darphaneler listesi
+    $civs = $pdo->query("SELECT id, name FROM civilizations")->fetchAll(PDO::FETCH_ASSOC);
+    $mints = $pdo->query("SELECT id, name, ancient_name, civilization_id FROM mints")->fetchAll(PDO::FETCH_ASSOC);
+
+    // Ürün Bloklarını Çıkar (Tüm VCoins şablonlarına dayanıklı)
+    preg_match_all('/<div[^>]+class=[\'"][^\'"]*\bitem\b[^\'"]*[\'"][^>]*>(.*?)(?=(?:<div[^>]+class=[\'"][^\'"]*\bitem\b|\s*<\/div\s*>\s*<div\s+id=|\s*$))/is', $html, $itemMatches);
+    $rawCards = $itemMatches[0] ?? [];
+    if (empty($rawCards)) {
+        preg_match_all('/<div[^>]+class=[\'"][^\'"]*\bitem\b[^\'"]*[\'"][^>]*>(.*?)<\/div\s*>\s*<\/div\s*>\s*<\/div>/is', $html, $itemMatches);
+        $rawCards = $itemMatches[0] ?? [];
+    }
+
+    $extractedCoins = [];
+    $seenUrls = [];
+
+    if (!empty($rawCards)) {
+        foreach ($rawCards as $cardHtml) {
+            $prodUrl = '';
+            $title = '';
+            $thumbImg = '';
+            $price = 85.0;
+
+            if (preg_match('/<a[^>]+href=[\'"]([^\'"]*product[^\'"]*)[\'"]/i', $cardHtml, $um)) {
+                $rawHref = $um[1];
+                if (stripos($rawHref, 'watchlist') !== false) continue;
+                $prodUrl = str_starts_with($rawHref, 'http') ? $rawHref : ($baseUrl . '/' . ltrim($rawHref, '/'));
+            }
+            if (empty($prodUrl) || isset($seenUrls[$prodUrl])) continue;
+            $seenUrls[$prodUrl] = true;
+
+            // Başlık
+            if (preg_match('/(?:class=[\'"]description[\'"][^>]*>|<p[^>]*class=[\'"]description[\'"][^>]*>)\s*<a[^>]*>(.*?)<\/a>/is', $cardHtml, $tm)) {
+                $title = trim(strip_tags($tm[1]));
+            } elseif (preg_match('/<img[^>]+alt=[\'"]([^\'"]+)[\'"]/i', $cardHtml, $im)) {
+                $title = trim(preg_replace('/^Ancient Coins\s*-\s*/i', '', $im[1]));
+            }
+
+            // Görsel
+            if (preg_match('/<img[^>]+(?:src|data-src|data-original)=[\'"]([^\'"]*(?:product_image|\/product\/|\/images\/)[^\'"]*)[\'"]/i', $cardHtml, $im)) {
+                $rawImg = $im[1];
+                if (str_starts_with($rawImg, '//')) {
+                    $thumbImg = 'https:' . $rawImg;
+                } elseif (str_starts_with($rawImg, '/')) {
+                    $thumbImg = 'https://images.vcoins.com' . $rawImg;
+                } elseif (!str_starts_with($rawImg, 'http')) {
+                    $thumbImg = 'https://images.vcoins.com/' . $rawImg;
+                } else {
+                    $thumbImg = $rawImg;
+                }
+            } elseif (preg_match('/<img[^>]+(?:src|data-src)=[\'"]([^\'"]+\.(?:jpg|jpeg|png|webp)[^\'"]*)[\'"]/i', $cardHtml, $im)) {
+                $rawImg = $im[1];
+                if (!str_contains($rawImg, 'logo') && !str_contains($rawImg, 'icon')) {
+                    $thumbImg = str_starts_with($rawImg, 'http') ? $rawImg : ('https://images.vcoins.com/' . ltrim($rawImg, '/'));
+                }
+            }
+
+            // Fiyat
+            if (preg_match('/content=[\'"]([0-9,]+(?:\.[0-9]{2})?)[\'"]/i', $cardHtml, $pm)) {
+                $price = (float)str_replace(',', '', $pm[1]);
+            } elseif (preg_match('/(?:US\s*\$|[\$€£])\s*([0-9,]+(?:\.[0-9]{2})?)/i', $cardHtml, $pm)) {
+                $price = (float)str_replace(',', '', $pm[1]);
+            }
+
+            $extractedCoins[] = [
+                'url' => $prodUrl,
+                'raw_title' => $title,
+                'thumb_img' => $thumbImg,
+                'price' => $price,
+            ];
+        }
+    }
+
+    if (empty($extractedCoins)) {
+        preg_match_all('#href=[\'"]([^\'"]*/product/([^\'"]*)/(\d+)/Default\.aspx)[\'"]#i', $html, $linkMatches);
+        foreach ($linkMatches[1] ?? [] as $k => $pHref) {
+            $pUrl = str_starts_with($pHref, 'http') ? $pHref : ($baseUrl . '/' . ltrim($pHref, '/'));
+            if (isset($seenUrls[$pUrl])) continue;
+            $seenUrls[$pUrl] = true;
+
+            $slugText = str_replace('_', ' ', $linkMatches[2][$k] ?? '');
+            $extractedCoins[] = [
+                'url' => $pUrl,
+                'raw_title' => ucwords($slugText),
+                'thumb_img' => '',
+                'price' => 85.0
+            ];
+        }
+    }
+
+    $processedResults = [];
+    $insertedCount = 0;
+    $skippedCount = 0;
+    $errorCount = 0;
+
+    foreach ($extractedCoins as $coinData) {
+        try {
+            $cUrl = $coinData['url'];
+            $rawTitle = decodeNumismaticHtml($coinData['raw_title']);
+            $thumb = $coinData['thumb_img'];
+            $price = $coinData['price'];
+
+            // Ön yüz & Arka yüz yüksek çözünürlüklü URL
+            $aversUrl = '';
+            $reversUrl = '';
+            if (!empty($thumb)) {
+                if (str_contains($thumb, '/M/3/')) {
+                    $aversUrl = str_replace('/M/3/', '/M/5/', $thumb);
+                    $reversUrl = str_replace('/M/3/', '/M/6/', $thumb);
+                } else {
+                    $aversUrl = $thumb;
+                }
+            }
+
+            $contextText = $rawTitle . ' ' . $cUrl . ' ' . $categoryTitle;
+
+            // Medeniyet
+            list($civId, $civName) = detectNumismaticCivilization($contextText, null, $civs);
+            $civId = $civId ?: 1;
+
+            // Darphane
+            list($mintId, $mintName) = detectNumismaticMint($contextText, null, $mints);
+
+            // Hükümdar
+            $ruler = detectNumismaticRuler($contextText);
+
+            // Maden
+            list($metalType, $metalCode) = detectNumismaticMetal($contextText, $cUrl);
+
+            // Standart
+            $standard = detectNumismaticStandard($contextText, $cUrl);
+
+            // Yıllar
+            list($yearStart, $yearEnd) = parseNumismaticYears($contextText);
+
+            // Başlık
+            $title = $rawTitle;
+            if (empty($title) || strlen($title) < 5) {
+                $title = "{$civName} {$metalType} {$standard} ({$ruler})";
+            }
+
+            // Slug
+            $slugBase = strtolower(trim(preg_replace('/[^A-Za-z0-9-]+/', '-', $title), '-'));
+            $slug = substr($slugBase, 0, 80) . '-' . rand(1000, 9999);
+
+            // Mükerrer Kontrolü
+            if ($skipDuplicates) {
+                $chk = $pdo->prepare("SELECT id FROM coins WHERE title = ? OR slug LIKE ? LIMIT 1");
+                $chk->execute([$title, $slugBase . '%']);
+                $existId = $chk->fetchColumn();
+                if ($existId) {
+                    $skippedCount++;
+                    $processedResults[] = [
+                        'status' => 'skipped',
+                        'title' => $title,
+                        'message' => 'Koleksiyonda mevcut (Mükerrer)',
+                        'id' => (int)$existId
+                    ];
+                    continue;
+                }
+            }
+
+            $histContext = generateNumismaticHistoricalContext($civName, $ruler, $mintName, $metalType, $standard);
+
+            if ($autoCommit) {
+                // Otomatik modda WebP indir ve DB'ye yaz
+                $aversImage = processBulkCoinImage($aversUrl ?: $thumb, 'avers', $slug);
+                $reversImage = processBulkCoinImage($reversUrl ?: $thumb, 'revers', $slug);
+
+                $insertStmt = $pdo->prepare("
+                    INSERT INTO coins (
+                        civilization_id, mint_id, title, slug, ruler, metal_type, standard_name,
+                        weight_grams, diameter_mm, die_axis, year_start, year_end, rarity_code,
+                        condition_grade, estimated_value_min, estimated_value_max, currency,
+                        avers_description, revers_description, historical_context,
+                        roi_5y, liquidity_grade, avg_hammer_price, academic_source,
+                        avers_image, revers_image, reference_codes, is_featured, is_published,
+                        approval_status, created_at, updated_at
+                    ) VALUES (
+                        :civ, :mint, :title, :slug, :ruler, :metal, :std,
+                        3.45, 19.2, '12h', :ys, :ye, 'C',
+                        'VF', :vmin, :vmax, 'USD',
+                        :adesc, :rdesc, :hcontext,
+                        '+49%', 'A+ Üstün', :hammer, 'VCoins Otomatik Kategori Tarayıcı',
+                        :aimg, :rimg, :ref, :feat, :pub,
+                        'approved', NOW(), NOW()
+                    )
+                ");
+
+                $insertStmt->execute([
+                    'civ'      => $civId,
+                    'mint'     => $mintId,
+                    'title'    => $title,
+                    'slug'     => $slug,
+                    'ruler'    => $ruler,
+                    'metal'    => $metalType,
+                    'std'      => $standard,
+                    'ys'       => $yearStart,
+                    'ye'       => $yearEnd,
+                    'vmin'     => $valMin,
+                    'vmax'     => $valMax,
+                    'adesc'    => "Ön yüz: {$ruler} tasviri.",
+                    'rdesc'    => "Arka yüz: Dönemin nümizmatik sembol ve lejantları.",
+                    'hcontext' => $histContext,
+                    'hammer'   => $avgHammer,
+                    'aimg'     => $aversImage,
+                    'rimg'     => $reversImage,
+                    'ref'      => json_encode(['Kaynak' => 'VCoins Kategori Harvester'], JSON_UNESCAPED_UNICODE),
+                    'feat'     => $isFeatured,
+                    'pub'      => $isPublished,
+                ]);
+
+                $newId = (int)$pdo->lastInsertId();
+                $insertedCount++;
+                $processedResults[] = [
+                    'status' => 'success',
+                    'id' => $newId,
+                    'title' => $title,
+                    'ruler' => $ruler,
+                    'civilization' => $civName,
+                    'mint' => $mintName ?: 'Belirtilmedi',
+                    'metal' => $metalType,
+                    'standard' => $standard,
+                    'denomination' => $standard,
+                    'price' => $price,
+                    'year_start' => $yearStart,
+                    'year_end' => $yearEnd,
+                    'reference' => 'VCoins Harvester',
+                    'avers_image' => $aversImage ? ('/storage/' . $aversImage) : ($aversUrl ?: $thumb),
+                    'revers_image' => $reversImage ? ('/storage/' . $reversImage) : ($reversUrl ?: $thumb),
+                    'message' => 'Veritabanına eklendi'
+                ];
+            } else {
+                // Önizleme modunda hızlıca canlı resim URL'lerini döndür
+                $processedResults[] = [
+                    'status' => 'ready',
+                    'title' => $title,
+                    'ruler' => $ruler,
+                    'civilization' => $civName,
+                    'civilization_id' => $civId,
+                    'mint' => $mintName ?: '',
+                    'mint_id' => $mintId,
+                    'metal' => $metalType,
+                    'denomination' => $standard,
+                    'year_start' => $yearStart,
+                    'year_end' => $yearEnd,
+                    'estimated_value_min' => $valMin,
+                    'estimated_value_max' => $valMax,
+                    'currency' => 'USD',
+                    'reference' => 'VCoins Harvester',
+                    'avers_image' => $aversUrl ?: $thumb,
+                    'revers_image' => $reversUrl ?: $thumb,
+                    'historical_context' => $histContext
+                ];
+            }
+        } catch (\Throwable $e) {
+            $errorCount++;
+            $processedResults[] = [
+                'status' => 'error',
+                'title' => $coinData['raw_title'] ?? 'Bilinmeyen Sikke',
+                'message' => $e->getMessage()
+            ];
+        }
+    }
+
+    jsonResponse([
+        'success' => true,
+        'category_title' => $categoryTitle,
+        'page' => $page,
+        'total_pages' => $totalPages,
+        'total_found_on_page' => count($extractedCoins),
+        'inserted_count' => $insertedCount,
+        'skipped_count' => $skippedCount,
+        'error_count' => $errorCount,
+        'items' => $processedResults
+    ]);
+}
+
+// -----------------------------------------------------------------------------
+// REST API: GET /api/v1/coins/archive_status (Sunucu Arşiv Havuzu Durumu)
+// -----------------------------------------------------------------------------
+if ($uri === '/api/v1/coins/archive_status' && $method === 'GET') {
+    $archiveFile = __DIR__ . '/../sikkeler_arsiv/raw_coins.json';
+    $archiveImgDir = __DIR__ . '/../sikkeler_arsiv/images';
+
+    $exists = file_exists($archiveFile);
+    $items = [];
+    if ($exists) {
+        $raw = @file_get_contents($archiveFile);
+        $items = json_decode($raw, true) ?? [];
+        if (!is_array($items)) $items = [];
+    }
+
+    $imgCount = 0;
+    if (is_dir($archiveImgDir)) {
+        $imgs = glob($archiveImgDir . '/*.{jpg,jpeg,png,webp}', GLOB_BRACE);
+        if ($imgs) $imgCount = count($imgs);
+    }
+
+    jsonResponse([
+        'success' => true,
+        'archive_exists' => $exists,
+        'coin_count' => count($items),
+        'image_count' => $imgCount,
+        'items' => $items
+    ]);
+}
+
+// -----------------------------------------------------------------------------
+// REST API: POST /api/v1/coins/bulk_import (Toplu Sikke İçe Aktarma)
+// -----------------------------------------------------------------------------
+if ($uri === '/api/v1/coins/bulk_import' && $method === 'POST') {
+    $rawInput = file_get_contents('php://input');
+    $payload = json_decode($rawInput, true) ?? [];
+    $coinsList = $payload['coins'] ?? [];
+    $options = $payload['options'] ?? [];
+
+    if (!is_array($coinsList) || empty($coinsList)) {
+        jsonResponse(['success' => false, 'message' => 'İçe aktarılacak sikke listesi boş.'], 400);
+    }
+
+    $isPublishedDefault = isset($options['is_published']) ? (int)$options['is_published'] : 1;
+    $isFeaturedDefault = isset($options['is_featured']) ? (int)$options['is_featured'] : 0;
+    $skipDuplicates = !empty($options['skip_duplicates']);
+
+    $civs = $pdo->query("SELECT id, name FROM civilizations")->fetchAll(PDO::FETCH_ASSOC);
+    $mints = $pdo->query("SELECT id, name, ancient_name, civilization_id FROM mints")->fetchAll(PDO::FETCH_ASSOC);
+
+    $results = [];
+    $importedCount = 0;
+    $skippedCount = 0;
+    $errorCount = 0;
+
+    $cleanNum = function($v) {
+        if ($v === null || $v === '') return null;
+        $c = str_replace([' ', ','], ['', '.'], trim((string)$v));
+        return is_numeric($c) ? (float)$c : null;
+    };
+    $cleanInt = function($v) {
+        if ($v === null || $v === '') return null;
+        $c = str_replace([' ', ','], ['', '.'], trim((string)$v));
+        return is_numeric($c) ? (int)round((float)$c) : null;
+    };
+
+    foreach ($coinsList as $item) {
+        try {
+            $rawTitle = trim($item['title'] ?? $item['baslik'] ?? $item['name'] ?? '');
+            $itemDesc = trim(($item['avers_description'] ?? '') . ' ' . ($item['revers_description'] ?? '') . ' ' . ($item['historical_context'] ?? ''));
+            $fullContext = $rawTitle . ' ' . $itemDesc;
+
+            // Medeniyet
+            $civId = !empty($item['civilization_id']) ? (int)$item['civilization_id'] : null;
+            $civName = trim($item['civilization'] ?? $item['medeniyet'] ?? '');
+            if (!$civId) {
+                list($detectedCivId, $detectedCivName) = detectNumismaticCivilization($fullContext, $civName, $civs);
+                $civId = $detectedCivId ?: 1;
+                $civName = $detectedCivName;
+            }
+
+            // Darphane
+            $mintId = !empty($item['mint_id']) ? (int)$item['mint_id'] : null;
+            $mintName = trim($item['mint'] ?? $item['darphane'] ?? '');
+            if (!$mintId) {
+                list($detectedMintId, $detectedMintName) = detectNumismaticMint($fullContext, $mintName, $mints);
+                $mintId = $detectedMintId;
+                $mintName = $detectedMintName;
+            }
+
+            // Hükümdar / Şehir Devleti
+            $ruler = trim($item['ruler'] ?? $item['hukumdar'] ?? $item['authority'] ?? '');
+            if (empty($ruler)) {
+                $ruler = detectNumismaticRuler($fullContext);
+            }
+
+            // Maden
+            $metalInput = trim($item['metal'] ?? $item['metal_type'] ?? $item['raw_metal'] ?? '');
+            list($metalType, $metalCode) = detectNumismaticMetal($fullContext, '', $metalInput);
+
+            // Standart / Nominal
+            $stdInput = trim($item['denomination'] ?? $item['standard_name'] ?? $item['nominal_birim'] ?? '');
+            $standard = detectNumismaticStandard($fullContext, '', $stdInput);
+
+            // Başlık
+            $title = decodeNumismaticHtml($rawTitle);
+            if (empty($title)) {
+                $title = "{$civName} {$standard} ({$ruler})";
+            }
+
+            // Benzersiz Slug
+            $slugBase = strtolower(trim(preg_replace('/[^A-Za-z0-9-]+/', '-', $title), '-'));
+            $slug = substr($slugBase, 0, 80) . '-' . rand(1000, 9999);
+
+            // Mükerrer Kontrolü (Duplicate Check)
+            if ($skipDuplicates) {
+                $chkStmt = $pdo->prepare("SELECT id FROM coins WHERE title = ? OR slug LIKE ? LIMIT 1");
+                $chkStmt->execute([$title, $slugBase . '%']);
+                if ($chkStmt->fetch()) {
+                    $skippedCount++;
+                    $results[] = [
+                        'status' => 'skipped',
+                        'title' => $title,
+                        'message' => 'Zaten koleksiyonda mevcut (Mükerrer)'
+                    ];
+                    continue;
+                }
+            }
+
+            // Yıllar
+            $yearStart = $cleanInt($item['year_start'] ?? null);
+            $yearEnd = $cleanInt($item['year_end'] ?? null);
+            if ($yearStart === null && $yearEnd === null) {
+                list($yearStart, $yearEnd) = parseNumismaticYears($fullContext);
+            }
+
+            // Ağırlık, Çap, Kalıp Açısı (Başlıktan Regex veya Nominale Göre Gerçekçi Değer)
+            $weight = $cleanNum($item['weight_grams'] ?? $item['weight'] ?? null);
+            if ($weight === null && preg_match('/(\d+(?:\.\d+)?)\s*(?:g|gr|grams|gram)\b/i', $fullContext, $wm)) {
+                $weight = (float)$wm[1];
+            }
+            $diameter = $cleanNum($item['diameter_mm'] ?? $item['diameter'] ?? $item['size'] ?? null);
+            if ($diameter === null && preg_match('/(\d+(?:\.\d+)?)\s*(?:mm|milim|millimeter)\b/i', $fullContext, $dm)) {
+                $diameter = (float)$dm[1];
+            } elseif ($diameter === null && preg_match('/(?:Æ|AE)\s*(\d{1,2}(?:\.\d+)?)/i', $fullContext, $dm)) {
+                $diameter = (float)$dm[1];
+            }
+
+            // Eğer hala null ise nominal birime göre gerçekçi nümizmatik ağırlık ve çap ata
+            if ($weight === null) {
+                if (stripos($standard, 'Tetradrahmi') !== false) $weight = 16.85;
+                elseif (stripos($standard, 'Drahmi') !== false) $weight = 4.15;
+                elseif (stripos($standard, 'Obol') !== false) $weight = 0.75;
+                elseif (stripos($standard, 'Denarius') !== false) $weight = 3.85;
+                elseif (stripos($standard, 'Aureus') !== false) $weight = 7.25;
+                elseif (stripos($standard, 'Solidus') !== false) $weight = 4.45;
+                elseif (stripos($standard, 'Sestertius') !== false) $weight = 24.5;
+                elseif (stripos($standard, 'As') !== false) $weight = 10.8;
+                elseif (preg_match('/(?:Æ|AE)(\d+)/i', $standard, $am)) {
+                    $aeSize = (int)$am[1];
+                    $weight = round(pow($aeSize / 10, 2) * 1.55, 2);
+                } else {
+                    $weight = 3.80;
+                }
+            }
+
+            if ($diameter === null) {
+                if (stripos($standard, 'Tetradrahmi') !== false) $diameter = 28.5;
+                elseif (stripos($standard, 'Drahmi') !== false) $diameter = 18.2;
+                elseif (stripos($standard, 'Obol') !== false) $diameter = 10.5;
+                elseif (stripos($standard, 'Denarius') !== false) $diameter = 19.4;
+                elseif (stripos($standard, 'Aureus') !== false) $diameter = 20.0;
+                elseif (stripos($standard, 'Solidus') !== false) $diameter = 21.0;
+                elseif (stripos($standard, 'Sestertius') !== false) $diameter = 32.0;
+                elseif (stripos($standard, 'As') !== false) $diameter = 25.5;
+                elseif (preg_match('/(?:Æ|AE)(\d+)/i', $standard, $am)) {
+                    $diameter = (float)$am[1];
+                } else {
+                    $diameter = 19.0;
+                }
+            }
+
+            $dieAxis = trim($item['die_axis'] ?? '12h');
+
+            // Kondisyon & Nadirlik
+            $condition = trim($item['condition'] ?? $item['condition_grade'] ?? $item['kondisyon'] ?? 'VF');
+            $rarity = trim($item['rarity'] ?? $item['rarity_code'] ?? $item['nadirlik'] ?? 'C');
+
+            // Değerlemeler (Fiyat Asla $0-$0 Olmaz!)
+            $rawPrice = $cleanNum($item['price'] ?? $item['estimated_value_min'] ?? $item['price_min'] ?? null);
+            if ($rawPrice && $rawPrice > 0) {
+                $valMin = round($rawPrice);
+                $valMax = round($rawPrice * 1.35);
+            } else {
+                // Başlıkta fiyat yoksa madene ve nominale göre gerçekçi antik piyasa değeri ata
+                if (stripos($metalType, 'Altın') !== false) {
+                    $valMin = 850.0;
+                    $valMax = 1250.0;
+                } elseif (stripos($metalType, 'Gümüş') !== false) {
+                    $valMin = 140.0;
+                    $valMax = 220.0;
+                } else {
+                    $valMin = 65.0;
+                    $valMax = 110.0;
+                }
+            }
+            $currency = trim($item['currency'] ?? 'USD');
+            $avgHammer = round($valMin * 0.92, 2);
+
+            // Açıklamalar
+            $aversDesc = decodeNumismaticHtml(trim($item['avers_description'] ?? ''));
+            $reversDesc = decodeNumismaticHtml(trim($item['revers_description'] ?? ''));
+            $histContext = decodeNumismaticHtml(trim($item['historical_context'] ?? ''));
+            if (empty($histContext)) {
+                $histContext = "Bu nümizmatik eser, {$civName} coğrafyasında darpedilmiş karakteristik bir {$metalType} emisyonudur. {$ruler} dönemine ait ikonografik unsurları, dönemin darp sanatını ve ticari tedavül geleneğini yansıtan önemli bir nümizmatik kayıttır.";
+            }
+
+            // Referans
+            $refCodes = trim($item['reference'] ?? $item['reference_codes'] ?? $item['katalog_ref'] ?? '');
+            $refJson = null;
+            if (!empty($refCodes)) {
+                $refJson = json_encode(['Ref' => $refCodes], JSON_UNESCAPED_UNICODE);
+            }
+
+            // Görseller
+            $rawAvers = $item['avers_image'] ?? $item['avers_image_url'] ?? $item['avers_image_path'] ?? null;
+            $rawRevers = $item['revers_image'] ?? $item['revers_image_url'] ?? $item['revers_image_path'] ?? null;
+
+            $aversImage = processBulkCoinImage($rawAvers, 'avers', $slug);
+            $reversImage = processBulkCoinImage($rawRevers, 'revers', $slug);
+
+            // Veritabanına Ekle
+            $insertStmt = $pdo->prepare("
+                INSERT INTO coins (
+                    civilization_id, mint_id, title, slug, ruler, metal_type, standard_name,
+                    weight_grams, diameter_mm, die_axis, year_start, year_end, rarity_code,
+                    condition_grade, estimated_value_min, estimated_value_max, currency,
+                    avers_description, revers_description, historical_context,
+                    roi_5y, liquidity_grade, avg_hammer_price, academic_source,
+                    avers_image, revers_image, reference_codes, is_featured, is_published,
+                    approval_status, created_at, updated_at
+                ) VALUES (
+                    :civ, :mint, :title, :slug, :ruler, :metal, :std,
+                    :weight, :dia, :die, :ys, :ye, :rarity,
+                    :cond, :vmin, :vmax, :curr,
+                    :adesc, :rdesc, :hcontext,
+                    '+49%', 'A+ Üstün', :hammer, 'Numismatik Toplu İçe Aktarım',
+                    :aimg, :rimg, :ref, :feat, :pub,
+                    'approved', NOW(), NOW()
+                )
+            ");
+
+            $insertStmt->execute([
+                'civ'      => $civId,
+                'mint'     => $mintId,
+                'title'    => $title,
+                'slug'     => $slug,
+                'ruler'    => $ruler,
+                'metal'    => $metalType,
+                'std'      => $standard,
+                'weight'   => $weight,
+                'dia'      => $diameter,
+                'die'      => $dieAxis,
+                'ys'       => $yearStart,
+                'ye'       => $yearEnd,
+                'rarity'   => $rarity,
+                'cond'     => $condition,
+                'vmin'     => $valMin,
+                'vmax'     => $valMax,
+                'curr'     => $currency,
+                'adesc'    => $aversDesc,
+                'rdesc'    => $reversDesc,
+                'hcontext' => $histContext,
+                'hammer'   => $avgHammer,
+                'aimg'     => $aversImage,
+                'rimg'     => $reversImage,
+                'ref'      => $refJson,
+                'feat'     => $isFeaturedDefault,
+                'pub'      => $isPublishedDefault,
+            ]);
+
+            $newId = (int)$pdo->lastInsertId();
+            $importedCount++;
+            $results[] = [
+                'status' => 'success',
+                'id' => $newId,
+                'title' => $title,
+                'message' => 'Başarıyla eklendi'
+            ];
+        } catch (\Throwable $e) {
+            $errorCount++;
+            $results[] = [
+                'status' => 'error',
+                'title' => $item['title'] ?? 'Bilinmeyen Eser',
+                'message' => $e->getMessage()
+            ];
+        }
+    }
+
+    jsonResponse([
+        'success' => true,
+        'total' => count($coinsList),
+        'imported' => $importedCount,
+        'skipped' => $skippedCount,
+        'errors' => $errorCount,
+        'results' => $results
     ]);
 }
 
