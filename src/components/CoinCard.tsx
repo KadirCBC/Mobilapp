@@ -85,6 +85,7 @@ export function CoinCard({ item, onPress }: CoinCardProps) {
               source={{ uri: item.obverseImage }}
               style={isComposite ? styles.compositeLeft : styles.circularCoinImage}
               contentFit="cover"
+              contentPosition={isComposite ? 'left center' : 'center'}
               transition={200}
             />
           </View>
@@ -132,6 +133,7 @@ export function CoinCard({ item, onPress }: CoinCardProps) {
               source={{ uri: item.reverseImage }}
               style={isComposite ? styles.compositeRight : styles.circularCoinImage}
               contentFit="cover"
+              contentPosition={isComposite ? 'right center' : 'center'}
               transition={200}
             />
           </View>

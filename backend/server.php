@@ -289,8 +289,8 @@ function processDualCoinImages(?string $rawAvers, ?string $rawRevers, string $sl
     $w = imagesx($img);
     $h = imagesy($img);
 
-    // En/boy oranı >= 1.25 ise sol ve sağ yüzü fiziksel olarak ortadan ikiye böl
-    if ($h > 0 && ($w / $h) >= 1.25) {
+    // En/boy oranı >= 1.10 ise sol ve sağ yüzü fiziksel olarak ortadan ikiye böl
+    if ($h > 0 && ($w / $h) >= 1.10) {
         $halfW = (int)floor($w / 2);
 
         // 1. Sol Yarı (Ön Yüz / Avers)
@@ -555,7 +555,7 @@ function callGeminiVision(PDO $pdo, string|array $images, string $promptText, ?s
 // -----------------------------------------------------------------------------
 // NÜMİZMATİK YEREL ZEKA VE ÇEVİRİ YARDIMCILARI (GELİŞMİŞ FAIL-SAFE)
 // -----------------------------------------------------------------------------
-function decodeNumismaticHtml(string $text): string {
+function decodeNumismaticHtml(?string $text): string {
     if (empty($text)) return '';
     $text = html_entity_decode($text, ENT_QUOTES | ENT_HTML5, 'UTF-8');
     $text = html_entity_decode($text, ENT_QUOTES | ENT_HTML5, 'UTF-8');
@@ -1536,6 +1536,24 @@ function generateNumismaticComprehensiveMetadata(
             'Cohen' => '142'
         ];
         $academicSource = "Mattingly, H. & Sydenham, E. A. The Roman Imperial Coinage (RIC), Spink & Son London.";
+    }
+
+    // 11. SASANİ & ARAB-SASANİ (Tabaristan, Khosrow, Shapur, Ardashir)
+    elseif (stripos($civName, 'Sasani') !== false || stripos($fullText, 'Sasanian') !== false || 
+            stripos($fullText, 'Tabaristan') !== false || stripos($fullText, 'Arab-Sasanian') !== false || 
+            stripos($fullText, 'Khosrow') !== false || stripos($fullText, 'Shapur') !== false) {
+        
+        $gov = stripos($fullText, 'Tabaristan') !== false ? 'Tabaristan Valileri (Arab-Sasanian)' : 'Sasani Şahı';
+        $titleTr = "Sasani & Tabaristan ({$gov}). {$metalType} {$standardName}" . ($dateStr ? " ({$dateStr})" : '') . " - Kanatlı Taçlı Şah Portresi / Zerdüşt Ateşgedesi";
+        $aversDesc = "Ön Yüz (Avers): Sağa bakan Sasani hükümdarı / Tabaristan valisi büstü. Başında Zerdüşt kanatlı taç (astral semboller hilal ve yıldız ile süslü). Pehlevi veya erken Kûfî alfabesiyle hükümdar/vali adı ve bereket duaları yer alır.";
+        $reversDesc = "Arka Yüz (Revers): Merkezde Zerdüşt kutsal ateş sunağı (Ateşgede - Atashdan), yanında ayakta nöbet tutan iki muhafız rahip. Çevresinde Pehlevi harfleriyle darphane (TPRVSTN / Tabaristan) ve Post-Yazdgard dönemi yılı yazılıdır.";
+        $histContext = "Sasani İmparatorluğu'nun yıkılışının ardından Hazar Denizi'nin güneyindeki sarp Tabaristan dağlarında İspehbed ve erken İslam valileri tarafından Sasani darp geleneğini koruyarak basılmış tarihi drahmilerdir.";
+        $refCodes = [
+            'Malek'  => 'Tabaristan 42',
+            'Album'  => 'Checklist 52',
+            'Walker' => 'BMC Arab-Sasanian 214'
+        ];
+        $academicSource = "Malek, H. M. The Dabuyid Ispahbads and Early Abbasid Governors of Tabaristan (2004).";
     }
 
     // 11. GENEL GREK / DİĞER ANADOLU VE AKDENİZ POLİSLERİ (Fail-Safe Akıllı İkonografi Ayrıştırıcı)
@@ -2821,6 +2839,9 @@ if ($uri === '/api/v1/coins' && $method === 'GET') {
 if ($uri === '/api/v1/coins/harvest_category' && $method === 'POST') {
     $rawInput = file_get_contents('php://input');
     $payload = json_decode($rawInput, true) ?? [];
+    if (!empty($payload['html'])) {
+        @file_put_contents(__DIR__ . '/../last_full_html.html', $payload['html']);
+    }
     $categoryUrl = trim($payload['url'] ?? $_POST['url'] ?? '');
     $rawHtmlInput = trim($payload['html'] ?? $_POST['html'] ?? '');
     $cookie = trim($payload['cookie'] ?? $_POST['cookie'] ?? '');
@@ -2909,11 +2930,11 @@ if ($uri === '/api/v1/coins/harvest_category' && $method === 'POST') {
     $civs = $pdo->query("SELECT id, name FROM civilizations")->fetchAll(PDO::FETCH_ASSOC);
     $mints = $pdo->query("SELECT id, name, ancient_name, civilization_id FROM mints")->fetchAll(PDO::FETCH_ASSOC);
 
-    // Ürün Bloklarını Çıkar (Tüm VCoins şablonlarına dayanıklı)
-    preg_match_all('/<div[^>]+class=[\'"][^\'"]*\bitem\b[^\'"]*[\'"][^>]*>(.*?)(?=(?:<div[^>]+class=[\'"][^\'"]*\bitem\b|\s*<\/div\s*>\s*<div\s+id=|\s*$))/is', $html, $itemMatches);
+    // Ürün Bloklarını Çıkar (Tüm VCoins şablonlarına dayanıklı - sadece ana item kartı)
+    preg_match_all('/<div[^>]+class=[\'"][^\'"]*(?<![a-zA-Z0-9_-])item(?![a-zA-Z0-9_-])[^\'"]*[\'"][^>]*>(.*?)(?=(?:<div[^>]+class=[\'"][^\'"]*(?<![a-zA-Z0-9_-])item(?![a-zA-Z0-9_-])|\s*<\/div\s*>\s*<div\s+id=|\s*$))/is', $html, $itemMatches);
     $rawCards = $itemMatches[0] ?? [];
     if (empty($rawCards)) {
-        preg_match_all('/<div[^>]+class=[\'"][^\'"]*\bitem\b[^\'"]*[\'"][^>]*>(.*?)<\/div\s*>\s*<\/div\s*>\s*<\/div>/is', $html, $itemMatches);
+        preg_match_all('/<div[^>]+class=[\'"][^\'"]*(?<![a-zA-Z0-9_-])item(?![a-zA-Z0-9_-])[^\'"]*[\'"][^>]*>(.*?)<\/div\s*>\s*<\/div\s*>\s*<\/div>/is', $html, $itemMatches);
         $rawCards = $itemMatches[0] ?? [];
     }
 
@@ -3086,6 +3107,9 @@ if ($uri === '/api/v1/coins/harvest_category' && $method === 'POST') {
 
             list($weightGrams, $diameterMm) = detectNumismaticWeightAndDiameter($contextText, $standard);
 
+            $cPrice = (float)($coinData['price'] ?? 0);
+            list($valMin, $valMax, $avgHammer) = extractNumismaticPrice('', $contextText, (string)$cPrice, $cPrice);
+
             if ($autoCommit) {
                 // Otomatik modda WebP indir, geniş/çift yüzlü ise sol/sağ yüzü kes ve DB'ye yaz
                 list($aversImage, $reversImage) = processDualCoinImages($thumb, $thumb, $slug);
@@ -3129,8 +3153,8 @@ if ($uri === '/api/v1/coins/harvest_category' && $method === 'POST') {
                     'hcontext' => $histContext,
                     'hammer'   => $avgHammer,
                     'academic' => $academicSource,
-                    'aimg'     => $aversImage,
-                    'rimg'     => $reversImage,
+                    'aimg'     => $aversImage ?: $thumb,
+                    'rimg'     => $reversImage ?: $thumb,
                     'ref'      => $refJson,
                     'feat'     => $isFeatured,
                     'pub'      => $isPublished,

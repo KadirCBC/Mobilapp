@@ -322,6 +322,11 @@ export default function CoinDetailScreen() {
                       : styles.singleCoinImage
                   }
                   contentFit="cover"
+                  contentPosition={
+                    isComposite
+                      ? (activeFace === 'obverse' ? 'left center' : 'right center')
+                      : 'center'
+                  }
                   transition={150}
                 />
               </Animated.View>
@@ -656,6 +661,7 @@ export default function CoinDetailScreen() {
                         : styles.modalCompositeRight
                     }
                     contentFit="cover"
+                    contentPosition={activeFace === 'obverse' ? 'left center' : 'right center'}
                     transition={200}
                   />
                 </View>
