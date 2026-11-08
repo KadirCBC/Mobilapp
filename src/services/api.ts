@@ -1,6 +1,6 @@
 import { Platform } from 'react-native';
 import Constants from 'expo-constants';
-import { CoinItem, MOCK_COINS } from '@/data/mockData';
+import { CoinItem, MOCK_COINS, getCoinById } from '@/data/mockData';
 
 /**
  * Nümizmatik Yerel / cPanel API İstemcisi
@@ -80,6 +80,37 @@ export interface BackendCoin {
   is_featured?: boolean;
 }
 
+export interface NumismaticAnalysisReport {
+  durum: string;
+  genel_bilgi: {
+    baslik: string;
+    donem: string;
+    medeniyet: string;
+    hukumdar_otorite: string;
+    darphane: string;
+  };
+  fiziksel_ozellikler: {
+    tahmini_metal: string;
+    kondisyon: string;
+    olası_nominal: string;
+  };
+  yuzey_analizi: {
+    on_yuz_avers: {
+      tasvir: string;
+      lejant_yazi: string;
+      lejant_anlami: string;
+    };
+    arka_yuz_revers: {
+      tasvir: string;
+      lejant_yazi: string;
+      lejant_anlami: string;
+    };
+  };
+  guven_skoru: string;
+  benzer_referanslar: string[];
+  kullanici_bilgi_notu: string;
+}
+
 export interface GeminiScanResponse {
   success: boolean;
   scan_id?: number;
@@ -89,14 +120,19 @@ export interface GeminiScanResponse {
   confidence_score?: number;
   match_reason?: string;
   step2_reason?: string;
+  kullanici_aciklamasi?: string;
+  numismatic_report?: NumismaticAnalysisReport;
   academic_card?: {
+    durum?: string;
     tespit_tipi?: string;
     arşiv_durumu?: string;
+    kullanici_aciklamasi?: string;
     kimlik?: {
       olasi_baslik?: string;
       donem?: string;
       medeniyet_bolge?: string;
       hukumdar?: string;
+      darphane?: string;
       nominal_birim?: string;
       materyal?: string;
     };
@@ -104,6 +140,9 @@ export interface GeminiScanResponse {
       ikonografi?: string;
       okunan_yazilar?: string;
       yazit_anlami?: string;
+      revers_ikonografi?: string;
+      revers_lejant?: string;
+      revers_anlami?: string;
     };
     guvenilirlik?: {
       skor?: string;
@@ -322,6 +361,12 @@ export const api = {
      * Tekil sikke detayını çeker.
      */
     async get(id: string | number): Promise<CoinItem | null> {
+      const idStr = String(id);
+      // Taranmış yerel sikke ID'leri (gemini-coin-..., scanned-...) için doğrudan yerel depodan al, sunucu 404 isteği yapma
+      if (idStr.startsWith('gemini-coin-') || idStr.startsWith('scanned-')) {
+        return getCoinById(idStr) || null;
+      }
+
       try {
         const res = await request<any>(`/coins/${id}`);
         if (res && res.data) {
@@ -329,7 +374,7 @@ export const api = {
         }
         return null;
       } catch {
-        const local = MOCK_COINS.find((c) => c.id === String(id));
+        const local = getCoinById(idStr) || MOCK_COINS.find((c) => c.id === idStr);
         return local || null;
       }
     },

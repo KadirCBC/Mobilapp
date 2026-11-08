@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { CameraView, useCameraPermissions } from 'expo-camera';
+import * as FileSystem from 'expo-file-system/legacy';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
@@ -28,8 +29,17 @@ import { CoinItem, MOCK_COINS, registerScannedCoin } from '@/data/mockData';
 import { identifyCoinFromImage } from '@/utils/coinRecognition';
 import { api, BackendCoin, GeminiScanResponse, mapBackendCoinToCoinItem } from '@/services/api';
 
+const IMAGE_BASE64_CACHE = new Map<string, string>();
+
+function cacheBase64(uri: string, b64?: string | null): void {
+  if (uri && b64) {
+    IMAGE_BASE64_CACHE.set(uri, b64);
+  }
+}
+
 /**
- * Görsel URI'sini (file://, content://, data:image vb.) Base64 metnine dönüştüren güvenli yardımcı
+ * Görsel URI'sini Expo FileSystem ile yerel Base64 metnine dönüştüren yüksek performanslı yardımcı.
+ * Response.blob() React Native uyarısını ve bellek darboğazını tamamen ortadan kaldırır.
  */
 async function uriToBase64(uri: string): Promise<string> {
   if (!uri) return '';
@@ -37,23 +47,47 @@ async function uriToBase64(uri: string): Promise<string> {
     const parts = uri.split(',');
     return parts[1] || '';
   }
-  try {
-    const response = await fetch(uri);
-    const blob = await response.blob();
-    return await new Promise<string>((resolve) => {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const result = reader.result as string;
-        const base64 = result && result.includes(',') ? result.split(',')[1] : result || '';
-        resolve(base64);
-      };
-      reader.onerror = () => resolve('');
-      reader.readAsDataURL(blob);
-    });
-  } catch (err) {
-    console.warn('uriToBase64 convert failed:', err);
-    return '';
+
+  // 1. Doğrudan bellek önbelleğinde var mı kontrol et (kamera/galeri anında eklenen veri)
+  if (IMAGE_BASE64_CACHE.has(uri)) {
+    return IMAGE_BASE64_CACHE.get(uri) || '';
   }
+
+  // 2. Yerel dosya ise FileSystem ile doğrudan yerel işletim sistemi katmanından oku
+  try {
+    if (uri.startsWith('file://') || !uri.startsWith('http')) {
+      const b64 = await FileSystem.readAsStringAsync(uri, {
+        encoding: FileSystem.EncodingType.Base64,
+      });
+      if (b64) {
+        IMAGE_BASE64_CACHE.set(uri, b64);
+        return b64;
+      }
+    }
+  } catch {
+    // FileSystem okuyamazsa devam et
+  }
+
+  // 3. Uzak HTTP URL'si ise geçici indirip Base64 oku (Blob kullanmadan)
+  try {
+    if (uri.startsWith('http://') || uri.startsWith('https://')) {
+      const tempPath = `${FileSystem.cacheDirectory}scan_${Date.now()}.jpg`;
+      const downloadRes = await FileSystem.downloadAsync(uri, tempPath);
+      if (downloadRes?.uri) {
+        const b64 = await FileSystem.readAsStringAsync(downloadRes.uri, {
+          encoding: FileSystem.EncodingType.Base64,
+        });
+        if (b64) {
+          IMAGE_BASE64_CACHE.set(uri, b64);
+          return b64;
+        }
+      }
+    }
+  } catch {
+    // Uzak indirme hatası
+  }
+
+  return '';
 }
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -561,6 +595,9 @@ export default function ScanScreen() {
         });
 
         if (photo?.uri) {
+          if (photo.base64) {
+            cacheBase64(photo.uri, photo.base64);
+          }
           handlePhotoCapturedOrSelected(photo.uri);
           return;
         }
@@ -587,8 +624,11 @@ export default function ScanScreen() {
       });
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
-        const selectedUri = result.assets[0].uri;
-        handlePhotoCapturedOrSelected(selectedUri);
+        const selectedAsset = result.assets[0];
+        if (selectedAsset.base64) {
+          cacheBase64(selectedAsset.uri, selectedAsset.base64);
+        }
+        handlePhotoCapturedOrSelected(selectedAsset.uri);
       }
     } catch {
       // Galeri izni iptal durumu
@@ -1289,6 +1329,20 @@ export default function ScanScreen() {
                           </Text>
                         </View>
 
+                        {academicCard.kullanici_aciklamasi ? (
+                          <View style={styles.academicNarrativeCard}>
+                            <View style={styles.academicNarrativeHeader}>
+                              <Ionicons name="sparkles" size={13} color="#9E7B3B" />
+                              <Text style={styles.academicNarrativeLabel}>
+                                NÜMİZMATİK UZMAN REHBERİ
+                              </Text>
+                            </View>
+                            <Text style={styles.academicNarrativeText}>
+                              {academicCard.kullanici_aciklamasi}
+                            </Text>
+                          </View>
+                        ) : null}
+
                         {matchReason ? (
                           <View style={styles.academicReasonBox}>
                             <Text style={styles.academicReasonText}>
@@ -1306,10 +1360,37 @@ export default function ScanScreen() {
 
                         {academicCard.yuzey_detaylari?.okunan_yazilar ? (
                           <View style={{ marginTop: 4 }}>
-                            <Text style={styles.academicSectionLabel}>Okunan Lejant & Yazıt</Text>
+                            <Text style={styles.academicSectionLabel}>Ön Yüz Lejant & Yazıt</Text>
                             <Text style={styles.academicText}>
                               {academicCard.yuzey_detaylari.okunan_yazilar}
                               {academicCard.yuzey_detaylari.yazit_anlami ? ` (${academicCard.yuzey_detaylari.yazit_anlami})` : ''}
+                            </Text>
+                          </View>
+                        ) : null}
+
+                        {academicCard.yuzey_detaylari?.revers_ikonografi ? (
+                          <View style={{ marginTop: 4 }}>
+                            <Text style={styles.academicSectionLabel}>Arka Yüz (Revers) Tasvir</Text>
+                            <Text style={styles.academicText}>{academicCard.yuzey_detaylari.revers_ikonografi}</Text>
+                          </View>
+                        ) : null}
+
+                        {academicCard.yuzey_detaylari?.revers_lejant ? (
+                          <View style={{ marginTop: 4 }}>
+                            <Text style={styles.academicSectionLabel}>Arka Yüz Lejant & Anlamı</Text>
+                            <Text style={styles.academicText}>
+                              {academicCard.yuzey_detaylari.revers_lejant}
+                              {academicCard.yuzey_detaylari.revers_anlami ? ` (${academicCard.yuzey_detaylari.revers_anlami})` : ''}
+                            </Text>
+                          </View>
+                        ) : null}
+
+                        {academicCard.kimlik?.darphane ? (
+                          <View style={{ marginTop: 4 }}>
+                            <Text style={styles.academicSectionLabel}>Darphane / Otorite</Text>
+                            <Text style={styles.academicText}>
+                              {academicCard.kimlik.darphane}
+                              {academicCard.kimlik.hukumdar ? ` • ${academicCard.kimlik.hukumdar}` : ''}
                             </Text>
                           </View>
                         ) : null}
@@ -1332,6 +1413,17 @@ export default function ScanScreen() {
                             ))}
                           </View>
                         ) : null}
+
+                        <TouchableOpacity
+                          activeOpacity={0.85}
+                          onPress={() => {
+                            registerScannedCoin(detectedCoin);
+                            alert('Taranan bu sikke başarıyla kişisel koleksiyonunuza eklendi!');
+                          }}
+                          style={styles.saveToCollectionBtn}>
+                          <Ionicons name="bookmark-outline" size={14} color="#FFFFFF" />
+                          <Text style={styles.saveToCollectionBtnText}>Kişisel Koleksiyonuma Kaydet</Text>
+                        </TouchableOpacity>
                       </View>
                     ) : (
                       <View style={styles.unmatchedArchiveBox}>
@@ -3012,5 +3104,52 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '600',
     color: '#9E7B3B',
+  },
+  academicNarrativeCard: {
+    backgroundColor: '#FFFFFF',
+    borderLeftWidth: 3.5,
+    borderLeftColor: '#9E7B3B',
+    padding: 10,
+    borderRadius: 8,
+    marginVertical: 6,
+    borderWidth: 0.5,
+    borderColor: '#E2E8F0',
+  },
+  academicNarrativeHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    marginBottom: 4,
+  },
+  academicNarrativeLabel: {
+    fontSize: 9.5,
+    fontWeight: '800',
+    color: '#9E7B3B',
+    letterSpacing: 0.6,
+  },
+  academicNarrativeText: {
+    fontSize: 12,
+    color: '#1E293B',
+    lineHeight: 17,
+  },
+  saveToCollectionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: '#9E7B3B',
+    paddingVertical: 9,
+    borderRadius: BorderRadius.md,
+    marginTop: 10,
+    shadowColor: '#9E7B3B',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  saveToCollectionBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
 });

@@ -66,10 +66,10 @@
                     <div class="form-group">
                         <label class="form-label" for="model_name">Model Adı</label>
                         <select id="model_name" name="model_name" class="form-control">
-                            <option value="gemini-3.5-flash" <?= in_array($setting['model_name'] ?? '', ['gemini-3.5-flash', 'gemini-1.5-flash', '']) ? 'selected' : '' ?>>gemini-3.5-flash (Önerilen - En Yeni & Yüksek Doğruluk)</option>
-                            <option value="gemini-flash-latest" <?= ($setting['model_name'] ?? '') === 'gemini-flash-latest' ? 'selected' : '' ?>>gemini-flash-latest (Otomatik En Güncel Flash)</option>
-                            <option value="gemini-2.5-pro" <?= ($setting['model_name'] ?? '') === 'gemini-2.5-pro' ? 'selected' : '' ?>>gemini-2.5-pro (Kapsamlı Nümizmatik Akıl Yürütme)</option>
-                            <option value="gemini-3.8-flash" <?= ($setting['model_name'] ?? '') === 'gemini-3.8-flash' ? 'selected' : '' ?>>gemini-3.8-flash (Yeni Nesil)</option>
+                            <option value="gemini-1.5-flash" <?= in_array($setting['model_name'] ?? '', ['gemini-1.5-flash', '']) ? 'selected' : '' ?>>gemini-1.5-flash (Önerilen - Yüksek Hız & Kararlılık)</option>
+                            <option value="gemini-2.0-flash" <?= ($setting['model_name'] ?? '') === 'gemini-2.0-flash' ? 'selected' : '' ?>>gemini-2.0-flash (Yeni Nesil Hızlı Model)</option>
+                            <option value="gemini-2.5-flash" <?= ($setting['model_name'] ?? '') === 'gemini-2.5-flash' ? 'selected' : '' ?>>gemini-2.5-flash (Derin Nümizmatik Doğruluk)</option>
+                            <option value="gemini-1.5-pro" <?= ($setting['model_name'] ?? '') === 'gemini-1.5-pro' ? 'selected' : '' ?>>gemini-1.5-pro (Kapsamlı Akademik Akıl Yürütme)</option>
                         </select>
                         <div class="form-help">Görsel teşhis performansı ve yanıt süresini belirler.</div>
                     </div>

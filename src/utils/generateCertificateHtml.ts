@@ -1,3 +1,4 @@
+import * as FileSystem from 'expo-file-system/legacy';
 import { DigitalPassportData } from '@/data/certificateData';
 import { CoinItem } from '@/data/mockData';
 
@@ -6,21 +7,22 @@ export async function fetchImageAsBase64(uri: string): Promise<string> {
   if (uri.startsWith('data:')) return uri;
 
   try {
-    const response = await fetch(uri);
-    const blob = await response.blob();
-    return new Promise((resolve) => {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const result = reader.result;
-        if (typeof result === 'string') {
-          resolve(result);
-        } else {
-          resolve(uri);
-        }
-      };
-      reader.onerror = () => resolve(uri);
-      reader.readAsDataURL(blob);
-    });
+    if (uri.startsWith('file://') || !uri.startsWith('http')) {
+      const b64 = await FileSystem.readAsStringAsync(uri, {
+        encoding: FileSystem.EncodingType.Base64,
+      });
+      return b64 ? `data:image/jpeg;base64,${b64}` : uri;
+    }
+
+    const tempPath = `${FileSystem.cacheDirectory}cert_${Date.now()}.jpg`;
+    const downloadRes = await FileSystem.downloadAsync(uri, tempPath);
+    if (downloadRes?.uri) {
+      const b64 = await FileSystem.readAsStringAsync(downloadRes.uri, {
+        encoding: FileSystem.EncodingType.Base64,
+      });
+      return b64 ? `data:image/jpeg;base64,${b64}` : uri;
+    }
+    return uri;
   } catch (err) {
     console.warn('Image fetch to base64 failed, falling back to uri:', err);
     return uri;

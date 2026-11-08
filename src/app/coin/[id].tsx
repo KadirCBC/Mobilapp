@@ -66,6 +66,10 @@ export default function CoinDetailScreen() {
     if (localCoin) {
       setCoin(localCoin);
       setIsLoading(false);
+      // Taranmış yerel sikke ise sunucuya gereksiz istek atma
+      if (id.startsWith('gemini-coin-') || id.startsWith('scanned-') || localCoin.isScanned) {
+        return;
+      }
     }
 
     // Canlı Laravel / cPanel API'den tekil sikke detayı çek
